@@ -7,7 +7,8 @@ Created on Sat Nov 17 12:21:45 2018
 """
 ##########
 #########
-# need to look at PMC2707857. different structure.
+# need to look at PMC2707857 - has list structure with dois
+
 import xmltodict
 from Bio import Entrez
 import pandas as pd
@@ -70,81 +71,9 @@ for i in range(0, len(refs)):
 
 refIDs = refIDs.loc[:, 'ID']
 
-#test = pd.DataFrame({'ID': [123456]}, columns=['ID'])
-#test = test.append(refIDs, ignore_index=True)
-#test = test.stack()
-
 # This is the testing area for pulling the references for multiple articles
 # and putting them all into a data frame together.
-mti_oa_short = mti_oaSubset_train[0:10]
-mti_refs_short = pd.DataFrame()
 
-for ID in mti_oa_short['Accession ID']:
-    Entrez.email = "kgasper@unomaha.edu"
-    handle = Entrez.efetch(db="pmc", id=ID, retmode="xml")
-    xmlString = handle.read()
-    
-    element = xmltodict.parse(xmlString)
-    
-    # These boolean values describe whether or XML tags exist in 
-    # an article. With the current logic it is needed to prevent KeyErrors.
-    hasRefList = False
-    hasCitation = False
-    hasElementCitation = False
-    
-    # Check for a reference list, assign it, and set hasRefList true.
-    for i in element['pmc-articleset']['article']['back'].keys():
-        if (i == 'ref-list'):
-            refs = element['pmc-articleset']['article']['back']['ref-list']['ref']
-            hasRefList = True
-    
-    if (hasRefList):
-        for i in refs[0].keys():
-            if (i == 'citation'):
-                hasCitation = True
-                
-    if (hasRefList):
-        for i in refs[0].keys():
-            if (i == 'element-citation'):
-                hasElementCitation = True
-
-    # This is a temporary data frame used to hold all the reference IDs for
-    # one article. IDtype may be unnecessary.
-    refIDs = pd.DataFrame(columns=['ID', 'IDtype'])
-
-    for ref in range(0, len(refs)):
-        if (hasCitation):
-            for k in refs[ref]['citation'].keys():
-                if (k == 'pub-id'):
-                    tempData = {'ID': [refs[ref]['citation']['pub-id']['#text']],
-                               'IDtype':
-                                   [refs[ref]['citation']['pub-id']['@pub-id-type']]}
-                    tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
-                    refIDs = refIDs.append(tempDF, ignore_index=True)
-        if (hasElementCitation):
-            for l in refs[ref]['element-citation'].keys():
-                if (l == 'pub-id'):
-                    tempData = {'ID': [refs[ref]['element-citation']['pub-id']['#text']],
-                               'IDtype':
-                                   [refs[ref]['element-citation']['pub-id']['@pub-id-type']]}
-                    tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
-                    refIDs = refIDs.append(tempDF, ignore_index=True)
-
-    refIDs = refIDs.loc[:, 'ID']
-    
-    tempDF2 = pd.DataFrame({'ID': [ID]}, columns=['ID'])
-    tempDF2 = tempDF2.append(refIDs, ignore_index=True)
-    tempDF2 = tempDF2.stack()
-    
-    mti_refs_short = mti_refs_short.append(tempDF2, ignore_index=True)
-    
-    # This is a delay in accordance with PubMed API usage guidelines.
-    # It should not be set lower than .34.
-    time.sleep(.5)
-    
-###########################################################
-##### new trial to try and check if citation key is a list
-#### problems here
 mti_oa_short = mti_oaSubset_train[0:80]
 mti_refs_short = pd.DataFrame()
 
@@ -225,7 +154,7 @@ for ID in mti_oa_short['Accession ID']:
                     if (n == 'pub-id'):
                         if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
                         == 'doi'):
-                            print("oh it happened")
+                            # need the code for doi -> pmid here
                         if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
                         == 'pmid'):
                             tempData = {'ID': [refs[ref]['citation'][m]['pub-id']['#text']],
@@ -246,10 +175,9 @@ for ID in mti_oa_short['Accession ID']:
     time.sleep(.5)
 
 
-###### Mostly same stuff as before. need to troubleshoot this.
+###### Mostly same stuff as above. need to troubleshoot this.
 ###### could reduce the nesting and make everything more nicely readable
-# This is the testing area for pulling the references for multiple articles
-# and putting them all into a data frame together.
+    
 mti_oa_short = mti_oaSubset_train[0:10]
 mti_refs_short = pd.DataFrame()
 
