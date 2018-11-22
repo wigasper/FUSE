@@ -156,13 +156,14 @@ for ID in mti_oa_short['Accession ID']:
                     if (n == 'pub-id'):
                         if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
                         == 'doi'):
+                            pass
                             # need the code for doi -> pmid here
-                            if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
-                            == 'pmid'):
-                                tempData = {'ID': [refs[ref]['citation'][m]['pub-id']['#text']],
-                               'IDtype':
+                        if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
+                        == 'pmid'):
+                            tempData = {'ID': [refs[ref]['citation'][m]['pub-id']['#text']],
+                                               'IDtype':
                                    [refs[ref]['citation'][m]['pub-id']['@pub-id-type']]}
-                                tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
+                            tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
                     refIDs = refIDs.append(tempDF, ignore_index=True)
     refIDs = refIDs.loc[:, 'ID']
     
