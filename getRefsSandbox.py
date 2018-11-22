@@ -104,6 +104,9 @@ for ID in mti_oa_short['Accession ID']:
                 #if (type(refs[0]['citation']) is list):
                 if (isinstance(refs[0]['citation'], list)):
                     hasCitationList = True
+    #else:
+        # do some logging here. should store the ID that didn't have 'ref=list'
+        # for examination later.
     
     if (hasRefList):
         for i in refs[0].keys():
@@ -126,7 +129,6 @@ for ID in mti_oa_short['Accession ID']:
 
     # This is a temporary data frame used to hold all the reference IDs for
     # one article. IDtype may be unnecessary.
-    # there is a keyError here. also current logic screws it all up. may have missed something
     refIDs = pd.DataFrame(columns=['ID', 'IDtype'])
 
     for ref in range(0, len(refs)):
@@ -155,12 +157,12 @@ for ID in mti_oa_short['Accession ID']:
                         if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
                         == 'doi'):
                             # need the code for doi -> pmid here
-                        if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
-                        == 'pmid'):
-                            tempData = {'ID': [refs[ref]['citation'][m]['pub-id']['#text']],
+                            if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
+                            == 'pmid'):
+                                tempData = {'ID': [refs[ref]['citation'][m]['pub-id']['#text']],
                                'IDtype':
                                    [refs[ref]['citation'][m]['pub-id']['@pub-id-type']]}
-                            tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
+                                tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
                     refIDs = refIDs.append(tempDF, ignore_index=True)
     refIDs = refIDs.loc[:, 'ID']
     
