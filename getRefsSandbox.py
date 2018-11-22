@@ -97,16 +97,16 @@ for ID in mti_oa_short['Accession ID']:
         if (i == 'ref-list'):
             refs = element['pmc-articleset']['article']['back']['ref-list']['ref']
             hasRefList = True
-    
+
+    # need to put some logging here if an article doesn't have 'ref-list'
+    # record which articles don't have it for examination
+
     if (hasRefList):
         for i in refs[0].keys():
             if (i == 'citation'):
                 #if (type(refs[0]['citation']) is list):
                 if (isinstance(refs[0]['citation'], list)):
                     hasCitationList = True
-    #else:
-        # do some logging here. should store the ID that didn't have 'ref=list'
-        # for examination later.
     
     if (hasRefList):
         for i in refs[0].keys():
