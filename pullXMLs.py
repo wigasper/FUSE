@@ -11,15 +11,18 @@ from Bio import Entrez
 import pandas as pd
 import time
 import os
+from tqdm import tqdm
 
 os.chdir('/Users/wigasper/Documents/Research Project')
 
 mti_oaSubset_train = pd.read_csv("2013_MTI_in_OA_train.csv")
 
+ids_to_get = mti_oaSubset_train[9001:10353]
+
 # PMC_errors stores any errors from PMC's side
 PMC_errors = pd.DataFrame(columns=['ID', 'code', 'message'])
 
-for ID in mti_oaSubset_train['Accession ID']:
+for ID in tqdm(ids_to_get['Accession ID']):
     Entrez.email = "kgasper@unomaha.edu"
     handle = Entrez.efetch(db="pmc", id=ID, retmode="xml")
     xmlString = handle.read()
@@ -45,4 +48,4 @@ for ID in mti_oaSubset_train['Accession ID']:
     # It should not be set lower than .34.
     time.sleep(.4)
 
-PMC_errors.to_csv('PMC_errors.csv')
+PMC_errors.to_csv('PMC_errors_run3.csv')
