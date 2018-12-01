@@ -5,9 +5,7 @@ Created on Sat Nov 17 12:21:45 2018
 
 @author: wigasper
 """
-##########
-#########
-# need to look at PMC2707857 - has list structure with dois
+
 # PMC2829485 has 'mixed-citation'
 
 import xmltodict
@@ -15,6 +13,7 @@ from Bio import Entrez
 import pandas as pd
 import time
 import os
+from tqdm import tqdm
 
 os.chdir('/Users/wigasper/Documents/Research Project')
 
@@ -23,6 +22,7 @@ mti_oaSubset_train = pd.read_csv("2013_MTI_in_OA_train.csv")
 # This method takes a DOI ID and returns a PMID and True if Pubmed has
 # one for the DOI ID; if not, returns False
 def getPMIDfromDOI(doiIn):
+    time.sleep(.34)
     handle = Entrez.esearch(db="pubmed", term=doiIn)
     record = Entrez.read(handle)
     if (len(record['IdList']) > 0):
@@ -52,19 +52,17 @@ element = xmltodict.parse(xmlString)
 # currently keyError:0 with PMC2829485
 # mixed-citation doi-getting is working but recording 'True' in the DF
 
-# PMC_errors stores any errors from PMC's side
-PMC_errors = pd.DataFrame(columns=['ID', 'code', 'message'])
-
 # error_log stores tracked exceptions for analysis later. Entries
 # may need to be removed from the final data set.
-error_log = pd.DataFrame(columns=['ID', 'error'])
+#error_log = pd.DataFrame(columns=['ID', 'error'])
 
-mti_oa_short = mti_oaSubset_train[0:80]
+mti_oa_short = mti_oaSubset_train[0:500]
 mti_refs_short = pd.DataFrame()
 
-for ID in mti_oa_short['Accession ID']:
-    Entrez.email = "kgasper@unomaha.edu"
-    handle = Entrez.efetch(db="pmc", id=ID, retmode="xml")
+for ID in tqdm(mti_oa_short['Accession ID']):
+#    Entrez.email = "kgasper@unomaha.edu"
+#    handle = Entrez.efetch(db="pmc", id=ID, retmode="xml")
+    handle = open("./PMC XMLs/{}.xml".format(ID), "r")
     xmlString = handle.read()
     
     element = xmltodict.parse(xmlString)
@@ -75,21 +73,25 @@ for ID in mti_oa_short['Accession ID']:
     hasRefList = False
     hasElementCitation = False
     hasCitation = False
+    hasPMID = False
+    hasDOI = False
     
     # Check for an error on PMC's side
-    for i in element['pmc-articleset'].keys():
-        if (i == 'error'):
-            refs = element['pmc-articleset']['error']
-            pmcErrorData = {'ID': [ID], 'code': [refs['Code']], 'message': [refs['Message']]}
-            tempPMCerrorDF = pd.DataFrame(pmcErrorData, columns=['ID', 'code', 'message'])
-            PMC_errors = PMC_errors.append(tempPMCerrorDF, ignore_index=True)
-            pmcError = True
+#    for i in element['pmc-articleset'].keys():
+#        if (i == 'error'):
+#            refs = element['pmc-articleset']['error']
+#            pmcErrorData = {'ID': [ID], 'code': [refs['Code']], 'message': [refs['Message']]}
+#            tempPMCerrorDF = pd.DataFrame(pmcErrorData, columns=['ID', 'code', 'message'])
+#            PMC_errors = PMC_errors.append(tempPMCerrorDF, ignore_index=True)
+#            pmcError = True
     
     # Check for a reference list, assign it, and set hasRefList true.
-    for i in element['pmc-articleset']['article']['back'].keys():
-        if (i == 'ref-list' and not pmcError):
-            refs = element['pmc-articleset']['article']['back']['ref-list']['ref']
-            hasRefList = True
+    for j in element['pmc-articleset']['article'].keys():
+        if (j == 'back'):
+            for i in element['pmc-articleset']['article']['back'].keys():
+                if (i == 'ref-list'):
+                    refs = element['pmc-articleset']['article']['back']['ref-list']['ref']
+                    hasRefList = True
 
     # TO DO:
     # need to put some logging here if an article doesn't have 'ref-list'
@@ -97,17 +99,19 @@ for ID in mti_oa_short['Accession ID']:
 
     # evaluating structure like this may not be ideal. some articles
     # have ref lists with citations that are ordereddicts and lists
-    if (hasRefList):
-        for i in refs[0].keys():
-            if (i == 'citation'):
-                hasCitation = True
-            if (i == 'element-citation'):
-                hasElementCitation = True
+#    if hasRefList:
+#        if isinstance(refs, list):
+#            for i in refs[0].keys():
+#                if (i == 'citation'):
+#                    hasCitation = True
+#                if (i == 'element-citation'):
+#                    hasElementCitation = True
+        
 
     # This is a temporary data frame used to hold all the reference IDs for
     # one article. IDtype may be unnecessary.
     refIDs = pd.DataFrame(columns=['ID', 'IDtype'])
-    if (hasRefList):
+    if isinstance(refs, list) and hasRefList:
         for ref in range(0, len(refs)):
             for i in refs[ref].keys():
                 if (i == 'citation'):
@@ -127,52 +131,90 @@ for ID in mti_oa_short['Accession ID']:
                                     # the mixed-citation section
                                     if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
                                     == 'doi'):
+#                                        hasDOI = True
+#                                        doiIndex = m
                                         if not (getPMIDfromDOI(refs[ref]['citation'][m]['pub-id']['#text'])):
-                                            tempErrorData = {'ID': [ID], 'error': ['no_pmid']}
-                                            tempErrorDF = pd.DataFrame(tempData, columns=['ID', 'error'])
-                                            error_log = error_log.append(tempDF, ignore_index=True)
+                                            pass
+                                            #tempErrorData = {'ID': [ID], 'error': ['no_pmid']}
+                                            #tempErrorDF = pd.DataFrame(tempData, columns=['ID', 'error'])
+                                            #error_log = error_log.append(tempDF, ignore_index=True)
                                         else:
                                             tempData = {'ID': [getPMIDfromDOI(refs[ref]['citation'][m]['pub-id']['#text'])],
                                                        'IDtype': ['PMID']}
                                             tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
                                     if (refs[ref]['citation'][m]['pub-id']['@pub-id-type'] 
                                     == 'pmid'):
+#                                        hasPMID = True
+#                                        pmidIndex = m
                                         tempData = {'ID': [refs[ref]['citation'][m]['pub-id']['#text']],
                                                    'IDtype':
                                                        [refs[ref]['citation'][m]['pub-id']['@pub-id-type']]}
                                         tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
-                        refIDs = refIDs.append(tempDF, ignore_index=True)
-    
+#                            if hasPMID:
+#                                tempData = {'ID': [refs[ref]['citation'][pmidIndex]['pub-id']['#text']],
+#                                                   'IDtype':[refs[ref]['citation'][pmidIndex]['pub-id']['@pub-id-type']]}
+#                                tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
+#                            if hasDOI and not hasPMID:
+#                                tempData = {'ID': [getPMIDfromDOI(refs[ref]['citation'][doiIndex]['pub-id']['#text'])],
+#                                                       'IDtype': ['PMID']}
+#                                tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
+                        refIDs = refIDs.append(tempDF, ignore_index=True)    
                 if (i == 'element-citation'):
                     for l in refs[ref]['element-citation'].keys():
                         if (l == 'pub-id'):
-                            tempData = {'ID': [refs[ref]['element-citation']['pub-id']['#text']],
-                                       'IDtype':
-                                           [refs[ref]['element-citation']['pub-id']['@pub-id-type']]}
-                            tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
+                            if isinstance(refs[ref]['element-citation']['pub-id'], dict):
+                                tempData = {'ID': [refs[ref]['element-citation']['pub-id']['#text']],
+                                           'IDtype':
+                                               [refs[ref]['element-citation']['pub-id']['@pub-id-type']]}
+                                tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
+                            if isinstance(refs[ref]['element-citation']['pub-id'], list):
+                                for index in range(0, len(refs[ref]['element-citation']['pub-id'])):
+                                    if (refs[ref]['element-citation']['pub-id'][index]['@pub-id-type'] == 'pmid'):
+                                        hasPMID = True
+                                        pmidIndex = index
+                                    if (refs[ref]['element-citation']['pub-id'][index]['@pub-id-type'] == 'doi'):
+                                        hasDOI = True
+                                        doiIndex = index
+                                    if hasPMID:
+                                        tempData = {'ID': [refs[ref]['element-citation']['pub-id'][pmidIndex]['#text']],
+                                           'IDtype': [refs[ref]['element-citation']['pub-id'][pmidIndex]['@pub-id-type']]}
+                                        tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
+                                        #refIDs = refIDs.append(tempDF, ignore_index=True)
+                                    if hasDOI and not hasPMID:
+                                        tempData = {'ID': [getPMIDfromDOI(refs[ref]['element-citation']['pub-id'][doiIndex]['#text'])],
+                                                           'IDtype': ['PMID']}
+                                        tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
                             refIDs = refIDs.append(tempDF, ignore_index=True)
                 if (i == 'mixed-citation'):
                     if (isinstance(refs[ref]['mixed-citation'], dict)):
                         for key in refs[ref]['mixed-citation'].keys():
                             if (key == 'pub-id'):
-                                for index in range(0, len(refs[ref]['mixed-citation']['pub-id'])):
-                                    if (refs[ref]['mixed-citation']['pub-id'][index]['@pub-id-type'] == 'pmid'):
-                                        hasPMID = True
-                                        pmidIndex = index
-                                    if (refs[ref]['mixed-citation']['pub-id'][index]['@pub-id-type'] == 'doi'):
-                                        hasDOI = True
-                                        doiIndex = index
-                                if hasPMID:
-                                    tempData = {'ID': [refs[ref]['mixed-citation']['pub-id'][pmidIndex]['#text']],
-                                       'IDtype':
-                                           [refs[ref]['mixed-citation']['pub-id'][pmidIndex]['@pub-id-type']]}
-                                    tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
-                                    #refIDs = refIDs.append(tempDF, ignore_index=True)
-                                if hasDOI and not hasPMID:
-                                    tempData = {'ID': [getPMIDfromDOI(refs[ref]['mixed-citation']['pub-id'][doiIndex]['#text'])],
-                                                       'IDtype': ['PMID']}
+                                if (isinstance(refs[ref]['mixed-citation']['pub-id'], list)):
+                                    for index in range(0, len(refs[ref]['mixed-citation']['pub-id'])):
+                                        if (refs[ref]['mixed-citation']['pub-id'][index]['@pub-id-type'] == 'pmid'):
+                                            hasPMID = True
+                                            pmidIndex = index
+                                        if (refs[ref]['mixed-citation']['pub-id'][index]['@pub-id-type'] == 'doi'):
+                                            hasDOI = True
+                                            doiIndex = index
+                                    if hasPMID:
+                                        tempData = {'ID': [refs[ref]['mixed-citation']['pub-id'][pmidIndex]['#text']],
+                                           'IDtype': [refs[ref]['mixed-citation']['pub-id'][pmidIndex]['@pub-id-type']]}
+                                        tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
+                                        #refIDs = refIDs.append(tempDF, ignore_index=True)
+                                    if hasDOI and not hasPMID:
+                                        tempData = {'ID': [getPMIDfromDOI(refs[ref]['mixed-citation']['pub-id'][doiIndex]['#text'])],
+                                                           'IDtype': ['PMID']}
+                                        tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
+                                if (isinstance(refs[ref]['mixed-citation']['pub-id'], dict)):
+                                    tempData = {'ID': [refs[ref]['mixed-citation']['pub-id']['#text']],
+                                           'IDtype':
+                                               [refs[ref]['mixed-citation']['pub-id']['@pub-id-type']]}
                                     tempDF = pd.DataFrame(tempData, columns=['ID', 'IDtype'])
                                 refIDs = refIDs.append(tempDF, ignore_index=True)
+    if isinstance(refs, dict):
+        pass
+        # do stuff here
     
     refIDs = refIDs.loc[:, 'ID']
     
@@ -184,7 +226,7 @@ for ID in mti_oa_short['Accession ID']:
     
     # This is a delay in accordance with PubMed API usage guidelines.
     # It should not be set lower than .34.
-    time.sleep(.5)
+    #time.sleep(.5)
 
 # cleanup tasks:
 # need to export error logs
