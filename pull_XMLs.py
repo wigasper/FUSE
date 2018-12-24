@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Nov 30 16:27:29 2018
-
-@author: wigasper
-"""
-
 import xmltodict
 from Bio import Entrez
 import pandas as pd
@@ -29,18 +21,18 @@ for ID in tqdm(ids_to_get['Accession ID']):
 
     element = xmltodict.parse(xmlString)
     
-    pmcError = False
+    pmc_error = False
     
     # Check for an error on PMC's side and record it
-    for i in element['pmc-articleset'].keys():
-        if (i == 'error'):
+    for key in element['pmc-articleset'].keys():
+        if (key == 'error'):
             refs = element['pmc-articleset']['error']
             pmcErrorData = {'ID': [ID], 'code': [refs['Code']], 'message': [refs['Message']]}
             tempPMCerrorDF = pd.DataFrame(pmcErrorData, columns=['ID', 'code', 'message'])
             PMC_errors = PMC_errors.append(tempPMCerrorDF, ignore_index=True)
-            pmcError = True
+            pmc_error = True
     
-    if not pmcError:
+    if not pmc_error:
         file_out = open("./PMC XMLs/{}.xml".format(ID), "w")
         file_out.write(xmlString)
     
