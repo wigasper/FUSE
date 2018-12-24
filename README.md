@@ -1,2 +1,2 @@
 # FUSE
-Development repo for my work on predicting Pubmed MeSH terms using citation networks
+Development repo for my work on predicting PubMed MeSH terms using citation networks
