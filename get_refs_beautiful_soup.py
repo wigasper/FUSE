@@ -48,9 +48,9 @@ for ID in tqdm(mti_oa_short['Accession ID']):
         
         # add IDs to the error list if they don't have the 'back' tag and to 
         # the samples list if they do
-        if (soup.back == None):
+        if soup.back == None:
             ids_to_check.append(ID)
-        elif (soup.back != None):
+        elif soup.back != None:
             for pubid in soup.back.find_all('pub-id'):
                 sample.append(pubid.string)
             
@@ -63,26 +63,18 @@ mti_refs_short = pd.DataFrame(mti_refs_short)
 mti_refs_short.to_csv('get_refs_soup_run1.csv')
 
 # read in if needed:
-mti_refs_short = pd.read_csv("get_refs_soup_run1.csv", low_memory=False)
+mti_refs_short = pd.read_csv("get_refs_doi_to_pmid_run_continous.csv", low_memory=False)
 
 # this works:
-for row in tqdm(range(0, len(mti_refs_short))):
+# last run went up to like 4500
+for row in tqdm(range(5900, len(mti_refs_short))):
     for col in range(0, len(mti_refs_short.columns)):
         if re.match(r"^.*10\..*$", str(mti_refs_short.iloc[row, col])):
             mti_refs_short.iloc[row, col] = get_PMID_from_DOI(mti_refs_short.iloc[row, col])
     
-mti_refs_short.to_csv("get_refs_doi_to_pmid_run2.csv")
+mti_refs_short.to_csv("get_refs_doi_to_pmid_run_continous.csv")
     
 
-#tester = pd.read_csv("get_refs_soup_run1.csv", low_memory=False)
-#tester = tester[1:250]
-#
-#tester = tester.applymap(lambda x: get_PMID_from_DOI(x))
-#
-##tester_result = mti_refs_short.replace("^.*10\..*$", lambda x: get_PMID_from_DOI(x), regex = True)
-#
-#mti_refs_short.to_csv("get_refs_doi_to_pmid_run1.csv")
-#mti_refs_short = pd.read_csv("get_refs_doi_to_pmid_run1.csv", low_memory=False) 
 #
 #get_refs_doi_to_pmid_run1 = pd.read_csv("get_refs_doi_to_pmid_run1.csv", low_memory=False)
 #if tester.equals(mti_refs_short[1:250]):
