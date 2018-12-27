@@ -17,29 +17,20 @@ mti_oaSubset_train = pd.read_csv("2013_MTI_in_OA_train.csv")
 # one for the DOI ID; if not, returns False
 def get_PMID_from_DOI(doi_in):
     if re.match(r"^.*10\..*$", str(doi_in)):
-        time.sleep(.5)
-        Entrez.email = "kgasper@unomaha.edu"
-        handle = Entrez.esearch(db="pubmed", term=doi_in)
-        record = Entrez.read(handle)
-        if len(record['IdList']) > 0:
-            PMID = record['IdList'][0]
-            return PMID
-        elif len(record['IdList']) == 0:
-            return np.NaN
 
-#handle = Entrez.esearch(db="pubmed", term="10.1073/pnas.37.4.205")
-mti_oa_short = mti_oaSubset_train
 
-# 2D list for the references
-mti_refs_short = [[]]
+
+# List for the references
+mti_refs = [[]]
 
 # This list is for IDs that don't have the 'back' tag, to investigate later.
 ids_to_check = []
+
 # FileNotFoundErrors
 fnfe = []
 
-# Extract references from the XML files
-for ID in tqdm(mti_oa_short['Accession ID']):
+# Extract references from the XML files 8177
+for ID in tqdm(mti_oaSubset_train['Accession ID']):
     try:
         handle = open("./PMC XMLs/{}.xml".format(ID), "r")
         soup = BeautifulSoup(handle.read())
@@ -54,26 +45,71 @@ for ID in tqdm(mti_oa_short['Accession ID']):
             for pubid in soup.back.find_all('pub-id'):
                 sample.append(pubid.string)
             
-            mti_refs_short.append(sample)
+            mti_refs.append(sample)
     except FileNotFoundError:
         fnfe.append(ID)
     
-mti_refs_short = pd.DataFrame(mti_refs_short)
+mti_refs = pd.DataFrame(mti_refs)
 
-mti_refs_short.to_csv('get_refs_soup_run1.csv')
+# Save refs
+# mti_refs.to_csv('mti_refs_w_DOIs.csv')
 
-# read in if needed:
-mti_refs_short = pd.read_csv("get_refs_doi_to_pmid_run_continous.csv", low_memory=False)
+# Read in if needed
+mti_refs = pd.read_csv("mti_refs_w_DOIs.csv", low_memory=False)
 
-# this works:
-# last run went up to like 4500
-for row in tqdm(range(5900, len(mti_refs_short))):
-    for col in range(0, len(mti_refs_short.columns)):
-        if re.match(r"^.*10\..*$", str(mti_refs_short.iloc[row, col])):
-            mti_refs_short.iloc[row, col] = get_PMID_from_DOI(mti_refs_short.iloc[row, col])
+# Read in PMC_IDs to convert all the DOIs to PMIDs:
+PMC_ids = pd.read_csv("PMC-ids.csv", low_memory=False)
+
+# Drop unneeded columns
+DOI_PMIDs = PMC_ids.drop(["Journal Title", "ISSN", "eISSN", "Year", "Volume",
+                         "Issue", "Page", "PMCID", "Manuscript Id", 
+                         "Release Date"], axis=1)
+del(PMC_ids)
+
+# Change PMIDs from float64 in scientific notation to str
+DOI_PMIDs.PMID = DOI_PMIDs.PMID.fillna(0)
+DOI_PMIDs.PMID = DOI_PMIDs.PMID.astype(int).astype(str)
+DOI_PMIDs.PMID = DOI_PMIDs.PMID.replace("0", "NA")
+
+
+## 10.1111/j.1365-4362.1994.tb02872.x
+#result = DOI_PMIDs[DOI_PMIDs.DOI == "10.1111/j.1365-4362.1994.tb02872.x"].PMID
+#result = DOI_PMIDs[DOI_PMIDs.DOI == "10.1016/j.ijid.2008.06.019"].PMID
+
+# Find DOIs and convert them to PMIDs if possible. check col 4/93
+for row in tqdm(range(0, len(mti_refs))):
+    for col in range(0, len(mti_refs.columns)):
+        if re.match(r"^[1][0][.]..*$", str(mti_refs.iloc[row, col])):
+            result = DOI_PMIDs[DOI_PMIDs.DOI == mti_refs.iloc[row, col]].PMID
+            if len(result) == 1:
+                 mti_refs.iloc[row, col] = result.item()
+            if len(result) == 0:
+                mti_refs.iloc[row, col] = np.NaN
     
-mti_refs_short.to_csv("get_refs_doi_to_pmid_run_continous.csv")
-    
+mti_refs.to_csv('mti_refs_wo_DOIs.csv')
+# Save if needed:
+# mti_refs_short.to_csv("get_refs_doi_to_pmid_run_continous.csv")
+            
+# Read in if needed:
+# mti_refs_short = pd.read_csv("get_refs_doi_to_pmid_run_continous.csv", low_memory=False)
+            
+# Remove IDs in the format "2-s......."
+mti_refs_short = mti_refs_short.replace("^[2][-][s]..*$", np.NaN, regex=True)
+
+mti_refs_short = mti_refs_short.drop("Unnamed: 0", axis=1)
+
+# Make edge list by melting the DF. Drop unnecessary column and NAs
+edge_list = pd.melt(mti_refs_short, id_vars=['0'], 
+                    value_vars=mti_refs_short.loc[:, 
+                    mti_refs_short.columns != '0'],
+                    value_name='1')
+edge_list = edge_list.drop("variable", axis=1)
+edge_list = edge_list.dropna()
+
+# Sort list, drop duplicates and save
+edge_list = edge_list.sort_values(by=['0'])
+edge_list = edge_list.drop_duplicates()
+edge_list.to_csv("edge_list.csv")
 
 #
 #get_refs_doi_to_pmid_run1 = pd.read_csv("get_refs_doi_to_pmid_run1.csv", low_memory=False)
@@ -84,11 +120,20 @@ mti_refs_short.to_csv("get_refs_doi_to_pmid_run_continous.csv")
         
 #repr(mti_refs_short3.iloc[[46], [2]])
 #test = get_PMID_from_DOI(mti_refs_short.iloc[66, 2])
-#if re.match("^.*10\..*$", mti_refs_short.iloc[66, 2]):
-#    print("oh yeah")
-#if not re.match("^.*10\..*$", mti_refs_short.iloc[66, 2]):
-#    print("nope, not at all")
+if re.match("^[2][-][s]..*$", "2-s2.0-77954665047"):
+    print("oh yeah")
+if not re.match("^[2][-][s]..*$", "2-s2.0-77954665047"):
+    print("nope, not at all")
 
+if re.match("^[1][0][.]..*$", "10.1006/pmed.2000.0731.S009174350090731X"):
+    print("oh yeah")
+if not re.match("^[1][0][.]..*$", "10.1006/pmed.2000.0731.S009174350090731X"):
+    print("nope, not at all")
+    
+if re.match("^..*$", "10.1006/pmed.2000.0731.S009174350090731X"):
+    print("oh yeah")
+if not re.match("^.*10\..*$", "10.1006/pmed.2000.0731.S009174350090731X"):
+    print("nope, not at all")
 
 
 ##############################################
