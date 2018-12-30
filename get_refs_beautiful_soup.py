@@ -1,9 +1,9 @@
 # Author: Kirk Gasper
 
-from Bio import Entrez
+#from Bio import Entrez
 import pandas as pd
 import numpy as np
-import time
+#import time
 import os
 import re
 from tqdm import tqdm
@@ -12,13 +12,6 @@ from bs4 import BeautifulSoup
 os.chdir('/Users/wigasper/Documents/Research Project')
 
 mti_oaSubset_train = pd.read_csv("2013_MTI_in_OA_train.csv")
-
-# This method takes a DOI ID and returns a PMID if Pubmed has
-# one for the DOI ID; if not, returns False
-def get_PMID_from_DOI(doi_in):
-    if re.match(r"^.*10\..*$", str(doi_in)):
-
-
 
 # List for the references
 mti_refs = [[]]
@@ -85,23 +78,21 @@ for row in tqdm(range(0, len(mti_refs))):
                  mti_refs.iloc[row, col] = result.item()
             if len(result) == 0:
                 mti_refs.iloc[row, col] = np.NaN
-    
-mti_refs.to_csv('mti_refs_wo_DOIs.csv')
-# Save if needed:
-# mti_refs_short.to_csv("get_refs_doi_to_pmid_run_continous.csv")
-            
-# Read in if needed:
-# mti_refs_short = pd.read_csv("get_refs_doi_to_pmid_run_continous.csv", low_memory=False)
-            
-# Remove IDs in the format "2-s......."
-mti_refs_short = mti_refs_short.replace("^[2][-][s]..*$", np.NaN, regex=True)
 
-mti_refs_short = mti_refs_short.drop("Unnamed: 0", axis=1)
+# Save if needed:
+mti_refs.to_csv("mti_refs_wo_DOIs.csv")
+
+# Read in if needed:
+# mti_refs = pd.read_csv("mti_refs_wo_DOIs.csv", low_memory=False)
+# mti_refs = mti_refs.drop("Unnamed: 0", axis=1)
+            
+# Remove IDs in the format "2-s......." 3499
+mti_refs = mti_refs.replace("^2-s..*$", np.NaN, regex=True)
 
 # Make edge list by melting the DF. Drop unnecessary column and NAs
-edge_list = pd.melt(mti_refs_short, id_vars=['0'], 
-                    value_vars=mti_refs_short.loc[:, 
-                    mti_refs_short.columns != '0'],
+edge_list = pd.melt(mti_refs, id_vars=['0'], 
+                    value_vars=mti_refs.loc[:, 
+                    mti_refs.columns != '0'],
                     value_name='1')
 edge_list = edge_list.drop("variable", axis=1)
 edge_list = edge_list.dropna()
@@ -138,7 +129,6 @@ if not re.match("^.*10\..*$", "10.1006/pmed.2000.0731.S009174350090731X"):
 
 ##############################################
 # From first run:
-# FNFE = PMC3464690
 # IDs to check: PMC3197088
 # PMC3284407, PMC3334562, PMC3334566, PMC3334576, PMC3334580, PMC3339691
 # PMC3339694, PMC3339697, PMC3363164, PMC3366896, PMC3371872, PMC3374144
