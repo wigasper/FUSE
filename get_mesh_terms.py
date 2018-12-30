@@ -5,6 +5,10 @@ from Bio import Entrez
 from bs4 import BeautifulSoup
 import os
 
+# OSX path:
+#os.chdir('/Users/wigasper/Documents/Research Project')
+
+# Ubuntu path:
 os.chdir('/home/wkg/Documents/Research Project')
 
 ID = "10073946"
