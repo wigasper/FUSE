@@ -3,7 +3,9 @@
 
 from Bio import Entrez
 from bs4 import BeautifulSoup
+import os
 
+os.chdir('/home/wkg/Documents/Research Project')
 
 ID = "10073946"
 Entrez.email = "kgasper@unomaha.edu"

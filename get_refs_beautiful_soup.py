@@ -10,6 +10,7 @@ from tqdm import tqdm
 from bs4 import BeautifulSoup
 
 os.chdir('/Users/wigasper/Documents/Research Project')
+# os.chdir('/home/wkg/Documents/Research Project')
 
 mti_oaSubset_train = pd.read_csv("2013_MTI_in_OA_train.csv")
 
