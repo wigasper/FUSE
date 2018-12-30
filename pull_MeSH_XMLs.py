@@ -4,14 +4,17 @@ import pandas as pd
 import time
 import os
 from tqdm import tqdm
+from pathlib import P
 
 #os.chdir('/Users/wigasper/Documents/Research Project')
 os.chdir('/home/wkg/Documents/Research Project')
 
-mti_train = pd.read_csv("./FUSE/2013_MTI_in_OA_train.csv", index_col=None)
-mti_train.PMID = mti_train.PMID.astype(int).astype(str)
+edge_list = pd.read_csv("edge_list.csv", index_col=None)
 
-ids_to_get = mti_train.PMID.tolist()
+ids_to_get = edge_list['1'].tolist()
+
+# Drop duplicates:
+ids_to_get = list(dict.fromkeys(ids_to_get))
 
 # pm_errors stores any errors from PubMed's side
 pm_errors = []
@@ -29,9 +32,8 @@ for ID in tqdm(ids_to_get):
         if key == 'error':
             pm_errors.append(ID)
     if not pm_error:
-        file_out = open("./MeSH XMLs/{}.xml".format(ID), "w")
+        file_out = open("./MeSH XMLs/{}.xml".format(ID), "x")
         file_out.write(xmlString)
 
     # This is a delay in accordance with PubMed API usage guidelines.
-    # It should not be set lower than .34.
-    time.sleep(.4)
+    time.sleep(.3)
