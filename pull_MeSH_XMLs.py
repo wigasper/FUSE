@@ -25,6 +25,7 @@ pm_errors = []
 for ID in tqdm(ids_to_get):
     start_time = time.perf_counter()
     file = Path("./MeSH XMLs/{}.xml".format(ID))
+
     if not file.exists():
         Entrez.email = "kgasper@unomaha.edu"
         handle = Entrez.efetch(db="pubmed", id=ID, retmode="xml")
@@ -34,17 +35,19 @@ for ID in tqdm(ids_to_get):
         pm_error = False
     
         # Check for an error on PMC's side and record it
-        for key in element['PubmedArticleSet'].keys():
-            if key == 'error':
-                pm_errors.append(ID)
-                pm_error = True
-        if not pm_error:
-            file_out = open("./MeSH XMLs/{}.xml".format(ID), "w")
-            file_out.write(xmlString)
-    
+        if isinstance(element['PubmedArticleSet'], dict):
+            for key in element['PubmedArticleSet'].keys():
+                if key == 'error':
+                    pm_errors.append(ID)
+                    pm_error = True
+            if not pm_error:
+                file_out = open("./MeSH XMLs/{}.xml".format(ID), "w")
+                file_out.write(xmlString)
+        if not isinstance(element['PubmedArticleSet'], dict):
+            pm_errors.append(ID)
         # This is a delay in accordance with PubMed API usage guidelines.
-        if time.perf_counter() - start_time < .33:
-            time.sleep(.33 - (time.perf_counter() - start_time))
+        if time.perf_counter() - start_time < .4:
+            time.sleep(.4 - (time.perf_counter() - start_time))
         
 #start = time.perf_counter()
 #time.sleep(.3)
@@ -54,3 +57,6 @@ for ID in tqdm(ids_to_get):
 #    start = time.perf_counter()
 #    if time.perf_counter() - start < .33:
 #        time.sleep(.33 - (time.perf_counter() - start))
+            
+####################
+# Errors: 21179389
