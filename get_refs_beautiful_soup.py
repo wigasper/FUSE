@@ -26,7 +26,7 @@ ids_to_check = []
 # FileNotFoundErrors
 fnfe = []
 
-# Extract references from the XML files 8177
+# Extract references from the XML files
 for ID in tqdm(mti_oaSubset_train['Accession ID']):
     try:
         handle = open("./PMC XMLs/{}.xml".format(ID), "r")
@@ -85,7 +85,7 @@ for row in tqdm(range(0, len(mti_refs))):
 # mti_refs = pd.read_csv("mti_refs_wo_DOIs.csv", low_memory=False)
 # mti_refs = mti_refs.loc[:, ~mti_refs.columns.str.contains('^Unnamed')]
             
-# Remove IDs in the format "2-s......." 3499
+# Remove IDs in the format "2-s......."
 mti_refs = mti_refs.replace("^2[-]s..*$", np.NaN, regex=True)
 
 # Make edge list by melting the DF. Drop unnecessary column and NAs
@@ -93,7 +93,12 @@ edge_list = pd.melt(mti_refs, id_vars=['0'],
                     value_vars=mti_refs.loc[:, 
                     mti_refs.columns != '0'],
                     value_name='1')
-edge_list = edge_list.replace(" 10.1007/s11606-011-1968-2", np.NaN)
+edge_list = edge_list.replace(" 10.1007/s11606-011-1968-2", "22282311")
+edge_list = edge_list.replace("120/4/e902", "17908746")
+edge_list = edge_list.replace("121/3/575", "18310208")
+edge_list = edge_list.replace("353/5/487", "16079372")
+edge_list = edge_list.replace("163/2/141", "19188646")
+edge_list = edge_list.replace("13/7/930", "18809644")
 edge_list = edge_list.drop("variable", axis=1)
 edge_list = edge_list.dropna()
 
