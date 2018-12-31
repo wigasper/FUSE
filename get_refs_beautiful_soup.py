@@ -93,6 +93,7 @@ edge_list = pd.melt(mti_refs, id_vars=['0'],
                     value_vars=mti_refs.loc[:, 
                     mti_refs.columns != '0'],
                     value_name='1')
+edge_list = edge_list.replace(" 10.1007/s11606-011-1968-2", np.NaN)
 edge_list = edge_list.drop("variable", axis=1)
 edge_list = edge_list.dropna()
 

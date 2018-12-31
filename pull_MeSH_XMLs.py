@@ -5,6 +5,7 @@ import time
 import os
 from tqdm import tqdm
 from pathlib import Path
+import numpy as np
 
 # OSX path:
 #os.chdir('/Users/wigasper/Documents/Research Project')
@@ -13,6 +14,8 @@ from pathlib import Path
 os.chdir('/home/wkg/Documents/Research Project')
 
 edge_list = pd.read_csv("edge_list.csv", index_col=None)
+edge_list = edge_list.replace(" 10.1007/s11606-011-1968-2", np.NaN)
+edge_list = edge_list.dropna()
 ids_to_get = edge_list['1'].tolist()
 del(edge_list)
 
@@ -60,3 +63,5 @@ for ID in tqdm(ids_to_get):
             
 ####################
 # Errors: 21179389
+# FileNotFoundError: [Errno 2] No such file or directory: './MeSH XMLs/ 10.1007/s11606-011-1968-2.xml'
+            # was 148228/308067
