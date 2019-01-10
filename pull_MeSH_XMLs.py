@@ -1,16 +1,18 @@
+import time
+import os
+from pathlib import Path
+
 import xmltodict
 from Bio import Entrez
 import pandas as pd
-import time
-import os
 from tqdm import tqdm
-from pathlib import Path
 
 # OSX path:
 #os.chdir('/Users/wigasper/Documents/Research Project')
 
 # Ubuntu path:
-os.chdir('/home/wkg/Documents/Research Project')
+#os.chdir('/home/wkg/Documents/Research Project')
+os.chdir('/media/wkg/storage/Research Project')
 
 edge_list = pd.read_csv("edge_list.csv", index_col=None)
 edge_list = edge_list.replace(" 10.1007/s11606-011-1968-2", "22282311")
