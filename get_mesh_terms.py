@@ -10,7 +10,8 @@ from bs4 import BeautifulSoup
 #os.chdir('/Users/wigasper/Documents/Research Project')
 
 # Ubuntu path:
-os.chdir('/home/wkg/Documents/Research Project')
+#os.chdir('/home/wkg/Documents/Research Project')
+os.chdir('/media/wkg/storage/Research Project')
 
 ID = "10073946"
 Entrez.email = "kgasper@unomaha.edu"
