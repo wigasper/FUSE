@@ -34,16 +34,18 @@ mesh_terms = [ID]
     
 
 for mesh_heading in soup.find_all("meshheading"):
-    if mesh_heading.descriptorname != None:
-        #term_id = mesh_heading.descriptorname['ui']
-        term_id = mesh_heading.descriptorname.string
-        if mesh_heading.qualifiername != None:
-            for qualifier in mesh_heading.find_all("qualifiername"):
-                #term_id = "".join([term_id, ",", qualifier['ui']])
-                #term_id = "".join([term_id, "/", qualifier.string])
-                mesh_terms.append("".join([term_id, "/", qualifier.string]))
-        else:
-            mesh_terms.append(term_id)
+    if mesh_heading.descriptorname is not None:
+        term_id = mesh_heading.descriptorname['ui']
+        #term_id = mesh_heading.descriptorname.string
+        ##### For dealing with qualifiers:
+#        if mesh_heading.qualifiername != None:
+#            for qualifier in mesh_heading.find_all("qualifiername"):
+#                #term_id = "".join([term_id, ",", qualifier['ui']])
+#                #term_id = "".join([term_id, "/", qualifier.string])
+#                mesh_terms.append("".join([term_id, "/", qualifier.string]))
+#        else:
+#            mesh_terms.append(term_id)
+        mesh_terms.append(term_id)
     #mesh_terms.append(term_id)
     
 print(mesh_terms)
