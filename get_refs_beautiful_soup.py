@@ -1,11 +1,12 @@
 # Author: Kirk Gasper
 
+import os
+import re
+#import time
+
 #from Bio import Entrez
 import pandas as pd
 import numpy as np
-#import time
-import os
-import re
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 
@@ -37,8 +38,10 @@ for ID in tqdm(mti_oaSubset_train['Accession ID']):
         # add IDs to the error list if they don't have the 'back' tag and to 
         # the samples list if they do
         if soup.back == None:
+        # should i do if soup.back is None: here?
             ids_to_check.append(ID)
         elif soup.back != None:
+        # if soup.back is not None: ???
             for pubid in soup.back.find_all('pub-id'):
                 sample.append(pubid.string)
             

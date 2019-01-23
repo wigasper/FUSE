@@ -1,19 +1,17 @@
 # sandbox for prototyping getting of MeSH terms
 # how do I deal with qualifiers?
 
-from Bio import Entrez
-from bs4 import BeautifulSoup
 import os
 
-<<<<<<< HEAD
-=======
+from Bio import Entrez
+from bs4 import BeautifulSoup
+
 # OSX path:
 #os.chdir('/Users/wigasper/Documents/Research Project')
 
 # Ubuntu path:
 os.chdir('/home/wkg/Documents/Research Project')
 
->>>>>>> 89f52492b0ca6c421b62a409f6c3c679b95d4740
 ID = "10073946"
 Entrez.email = "kgasper@unomaha.edu"
 handle = Entrez.efetch(db="pubmed", id=ID, retmode="xml")
