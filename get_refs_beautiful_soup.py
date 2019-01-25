@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 #os.chdir('/Users/wigasper/Documents/Research Project')
 
 # Ubuntu path:
-os.chdir('/home/wkg/Documents/Research Project')
+os.chdir('/media/wkg/storage/Research Project')
 
 mti_oaSubset_train = pd.read_csv("2013_MTI_in_OA_train.csv")
 
@@ -90,6 +90,7 @@ for row in tqdm(range(0, len(mti_refs))):
             
 # Remove IDs in the format "2-s......."
 mti_refs = mti_refs.replace("^2[-]s..*$", np.NaN, regex=True)
+mti_refs = mti_refs.replace("^[0-9]{1,3}[/]..*$", np.NaN, regex=True)
 
 # Make edge list by melting the DF. Drop unnecessary column and NAs
 edge_list = pd.melt(mti_refs, id_vars=['0'], 
@@ -97,11 +98,6 @@ edge_list = pd.melt(mti_refs, id_vars=['0'],
                     mti_refs.columns != '0'],
                     value_name='1')
 edge_list = edge_list.replace(" 10.1007/s11606-011-1968-2", "22282311")
-edge_list = edge_list.replace("120/4/e902", "17908746")
-edge_list = edge_list.replace("121/3/575", "18310208")
-edge_list = edge_list.replace("353/5/487", "16079372")
-edge_list = edge_list.replace("163/2/141", "19188646")
-edge_list = edge_list.replace("13/7/930", "18809644")
 edge_list = edge_list.drop("variable", axis=1)
 edge_list = edge_list.dropna()
 

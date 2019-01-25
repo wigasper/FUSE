@@ -15,16 +15,8 @@ from tqdm import tqdm
 os.chdir('/media/wkg/storage/Research Project')
 
 edge_list = pd.read_csv("edge_list.csv", index_col=None)
-edge_list = edge_list.replace(" 10.1007/s11606-011-1968-2", "22282311")
-edge_list = edge_list.replace("120/4/e902", "17908746")
-edge_list = edge_list.replace("121/3/575", "18310208")
-edge_list = edge_list.replace("353/5/487", "16079372")
-edge_list = edge_list.replace("163/2/141", "19188646")
-edge_list = edge_list.replace("13/7/930", "18809644")
-
 
 ids_to_get = edge_list['1'].tolist()
-del(edge_list)
 
 # Drop duplicates:
 ids_to_get = list(dict.fromkeys(ids_to_get))

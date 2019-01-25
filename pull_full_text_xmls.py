@@ -1,27 +1,29 @@
+import time
+import os
+from pathlib import Path
+
 import xmltodict
 from Bio import Entrez
 import pandas as pd
-import time
-import os
 from tqdm import tqdm
-from pathlib import Path
 
 # OSX path:
 #os.chdir('/Users/wigasper/Documents/Research Project')
 
 # Ubuntu path:
-os.chdir('/home/wkg/Documents/Research Project')
+os.chdir('/media/wkg/storage/Research Project')
 
 mti_train = pd.read_csv("./FUSE/2013_MTI_in_OA_train.csv")
-ids_to_get = mti_train["Accession ID"].tolist()
-del(mti_train)
+mti_test = pd.read_csv("./FUSE/2013_MTI_in_OA_test.csv")
+
+ids_to_get = mti_train["Accession ID"].tolist() + mti_test["Accession ID"].tolist()
 
 # PMC_errors stores any errors from PMC's side
 pmc_errors = []
 
 for ID in tqdm(ids_to_get):
     start_time = time.perf_counter()
-    file = Path("./MeSH XMLs/{}.xml".format(ID))
+    file = Path("./PMC XMLs/{}.xml".format(ID))
     if not file.exists():
         Entrez.email = "kgasper@unomaha.edu"
         handle = Entrez.efetch(db="pmc", id=ID, retmode="xml")
