@@ -39,8 +39,8 @@ for ID in tqdm(ids_to_get):
                 pmc_error = True
     
         if not pmc_error:
-            file_out = open("./PMC XMLs/{}.xml".format(ID), "w")
-            file_out.write(xmlString)
+            with open(file, "w") as file_out:
+                file_out.write(xmlString)
             
         if time.perf_counter() - start_time < .33:
             time.sleep(.33 - (time.perf_counter() - start_time))
