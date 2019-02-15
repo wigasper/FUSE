@@ -53,8 +53,8 @@ for ID in tqdm(ids_to_get):
                         pm_errors.append(ID)
                         pm_error = True
                 if not pm_error:
-                    file_out = open("./MeSH XMLs/{}.xml".format(ID), "w")
-                    file_out.write(xmlString)
+                    with open("./MeSH XMLs/{}.xml".format(ID), "w") as file_out:
+                        file_out.write(xmlString)
             if not isinstance(element['PubmedArticleSet'], dict):
                 pm_errors.append(ID)
             # This is a delay in accordance with PubMed API usage guidelines.

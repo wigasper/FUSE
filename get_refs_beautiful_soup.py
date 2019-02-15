@@ -74,6 +74,7 @@ DOI_PMIDs.PMID = DOI_PMIDs.PMID.replace("0", "NA")
 # Find DOIs and convert them to PMIDs if possible
 for row in tqdm(range(0, len(mti_refs))):
     for col in range(0, len(mti_refs.columns)):
+        # should be like r"10\..*" .. right?
         if re.match(r"^[1][0][.]..*$", str(mti_refs.iloc[row, col])):
             result = DOI_PMIDs[DOI_PMIDs.DOI == mti_refs.iloc[row, col]].PMID
             if len(result) == 1:
