@@ -8,7 +8,7 @@ import pandas as pd
 from tqdm import tqdm
 
 # Add source for oa_file_list here
-oa_list = pd.read_csv("oa_file_list.csv")
+oa_list = pd.read_csv("./data/oa_file_list.csv")
 
 # Subset the 2013 MTI dataset for only those PMIDs that
 # are also in the PMC Open Access file list

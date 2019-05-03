@@ -43,8 +43,10 @@ for ID in tqdm(mti_subset_train['Accession ID']):
     
 mti_refs = pd.DataFrame(mti_refs)
 
+##########################
+# Add source for pmc-ids here
 # Read in PMC_IDs to convert all the DOIs to PMIDs:
-PMC_ids = pd.read_csv("PMC-ids.csv", low_memory=False)
+PMC_ids = pd.read_csv("./data/PMC-ids.csv", low_memory=False)
 
 # Drop unneeded columns
 DOI_PMIDs = PMC_ids.drop(["Journal Title", "ISSN", "eISSN", "Year", "Volume",
@@ -74,7 +76,8 @@ for row in tqdm(range(0, len(mti_refs))):
 # everything that isn't a PMID to make it easier
 # edge_list = edge_list.replace(" 10.1007/s11606-011-1968-2", "22282311")
 mti_refs = mti_refs.replace("^2-s.*$", np.NaN, regex=True)
-mti_refs = mti_refs.replace("^[0-9]{1,3}[/]..*$", np.NaN, regex=True)
+# check backslash escape here or just replace everything tha tisn't a PMID instead
+mti_refs = mti_refs.replace("^[0-9]{1,3}//..*$", np.NaN, regex=True)
 
 # Make edge list by melting the DF. Drop unnecessary column and NAs
 edge_list = pd.melt(mti_refs, id_vars=['0'], 
