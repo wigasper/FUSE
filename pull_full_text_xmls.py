@@ -7,18 +7,29 @@ from Bio import Entrez
 import pandas as pd
 from tqdm import tqdm
 
-# OSX path:
-#os.chdir('/Users/wigasper/Documents/Research Project')
+# Add source for oa_file_list here
+oa_list = pd.read_csv("oa_file_list.csv")
 
-# Ubuntu path:
-os.chdir('/media/wkg/storage/Research Project')
+# Subset the 2013 MTI dataset for only those PMIDs that
+# are also in the PMC Open Access file list
+with open("2013_MTI_ML_DataSet/PMIDs_train", "r") as fp:
+    mti_train = fp.readlines()
+    mti_train = pd.DataFrame({'PMID':mti_train})
 
-mti_train = pd.read_csv("./FUSE/2013_MTI_in_OA_train.csv")
-mti_test = pd.read_csv("./FUSE/2013_MTI_in_OA_test.csv")
+with open("2013_MTI_ML_DataSet/PMIDs_test", "r") as fp:
+    mti_test = fp.readlines()
+    mti_test = pd.DataFrame({'PMID':mti_test})
 
-ids_to_get = mti_train["Accession ID"].tolist() + mti_test["Accession ID"].tolist()
+mti_subset_train = oa_list[(oa_list.PMID.isin(mti_train.PMID))]
+mti_subset_train.to_csv("2013_MTI_in_OA_train.csv")
+
+mti_subset_test = oa_list[(oa_list.PMID.isin(mti_test.PMID))]
+mti_subset_test.to_csv("2013_MTI_in_OA_test.csv")
+
+ids_to_get = mti_subset_train["Accession ID"].tolist() + mti_subset_test["Accession ID"].tolist()
 
 # PMC_errors stores any errors from PMC's side
+# Replace this with logging module in the future
 pmc_errors = []
 
 for ID in tqdm(ids_to_get):
