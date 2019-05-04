@@ -3,12 +3,16 @@
 import re
 import logging
 
-import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from bs4 import BeautifulSoup
-    
-mti_subset_train = pd.read_csv("./data/2013_MTI_in_OA_train.csv")
+
+accessions = []
+
+with open("./data/2013_MTI_in_OA_train_nohead.csv", "r") as handle:
+    for line in handle:
+        line = line.split(",")
+        accessions.append(line[3])
 
 # Set up logging
 logging.basicConfig(filename="errors.log", level=logging.INFO,
@@ -19,7 +23,7 @@ logger = logging.getLogger()
 mti_refs = []
 
 # Extract references from the XML files
-for ID in tqdm(mti_subset_train['Accession ID']):
+for ID in tqdm(accessions):
     try:
         with open("./PMC XMLs/{}.xml".format(ID), "r") as handle:
             soup = BeautifulSoup(handle.read())
@@ -37,29 +41,19 @@ for ID in tqdm(mti_subset_train['Accession ID']):
     except FileNotFoundError:
         logger.error("FNFE: {}".format(str(ID)))
 
-# PMC-ids.csv is used to convert DOIs to PMIDs, this file is available at:
-# https://www.ncbi.nlm.nih.gov/pmc/pmctopmid/
-pmc_ids = pd.read_csv("./data/PMC-ids.csv", low_memory=False)
-
-# Drop unneeded columns
-pmc_ids = pmc_ids.drop(["Journal Title", "ISSN", "eISSN", "Year", "Volume",
-                         "Issue", "Page", "Manuscript Id", 
-                         "Release Date"], axis=1)
-
-# Change PMIDs from float64 in scientific notation to str
-pmc_ids.PMID = pmc_ids.PMID.fillna(0)
-pmc_ids.PMID = pmc_ids.PMID.astype(int).astype(str)
-pmc_ids.PMID = pmc_ids.PMID.replace("0", "NA")
-
-# Create dicts for faster conversions
-dois = pd.DataFrame(pmc_ids, columns=["DOI", "PMID"])
-dois = dict([(doi, pmid) for doi, pmid in zip(dois.DOI, dois.PMID)])
-
-pmcids = pd.DataFrame(pmc_ids, columns=["PMCID", "PMID"])
-pmcids = dict([(pmc, pmid) for pmc, pmid in zip(pmcids.PMCID, pmcids.PMID)])
+# Create dicts for ID conversions
+dois = {}
+pmcids = {}
+with open("./data/PMC-ids-nohead.csv", "r") as handle:
+    for line in handle:
+        line = line.split(",")
+        if len(line) > 9:
+            if line[7]:
+                dois[line[7]] = line[9]
+            pmcids[line[8]] = line[9]
 
 # This function converts a DOI or PMCID to a PMID
-def fetch_pmid(identifier, pmc_ids, logger):
+def fetch_pmid(identifier, dois, pmcids, logger):
     pmid = ""
     if re.match("^10\..*$", identifier):
         if identifier in dois.keys():
@@ -80,7 +74,7 @@ def fetch_pmid(identifier, pmc_ids, logger):
 # Convert IDs to PMIDs if possible
 for sample in mti_refs:
     for index in range(len(sample)):
-        sample[index] = fetch_pmid(sample[index], pmc_ids, logger)
+        sample[index] = fetch_pmid(sample[index], dois, pmcids, logger)
 
 edge_list = []
 
