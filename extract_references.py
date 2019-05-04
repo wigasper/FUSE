@@ -51,18 +51,25 @@ pmc_ids.PMID = pmc_ids.PMID.fillna(0)
 pmc_ids.PMID = pmc_ids.PMID.astype(int).astype(str)
 pmc_ids.PMID = pmc_ids.PMID.replace("0", "NA")
 
+# Create dicts for faster conversions
+dois = pd.DataFrame(pmc_ids, columns=["DOI", "PMID"])
+dois = dict([(doi, pmid) for doi, pmid in zip(dois.DOI, dois.PMID)])
+
+pmcids = pd.DataFrame(pmc_ids, columns=["PMCID", "PMID"])
+pmcids = dict([(pmc, pmid) for pmc, pmid in zip(pmcids.PMCID, pmcids.PMID)])
+
 # This function converts a DOI or PMCID to a PMID
 def fetch_pmid(identifier, pmc_ids, logger):
+    pmid = ""
     if re.match("^10\..*$", identifier):
-        pmid = pmc_ids[pmc_ids.DOI == identifier].PMID
-        if not pmid.empty:
-            return pmid.item()
-        else:
-            return np.NaN
-    if re.match("^PMC.*$", identifier):
-        pmid = pmc_ids[pmc_ids.PMCID == identifier].PMID
-        if not pmid.empty:
-            return pmid.item()
+        if identifier in dois.keys():
+            pmid = dois[identifier]
+        return pmid if pmid else np.NaN
+
+    if re.match("^PMC.*$", identifier) and identifier in pmcids.keys():
+        pmid = pmcids[identifier]
+        if pmid:
+            return pmid
         else:
             logger.error("PMCID conversion error: {}".format(identifier))
             return identifier
@@ -71,33 +78,23 @@ def fetch_pmid(identifier, pmc_ids, logger):
     return identifier
 
 # Convert IDs to PMIDs if possible
-for sample in tqdm(mti_refs):
-    for identifier in range(len(sample)):
-        sample[identifier] = fetch_pmid(sample[identifier], pmc_ids, logger)
-        
+for sample in mti_refs:
+    for index in range(len(sample)):
+        sample[index] = fetch_pmid(sample[index], pmc_ids, logger)
 
-            
-        
-        
-        
-        
-# Remove IDs in other formats
-# add logic here to drop DOIs too, maybe just drop
-# everything that isn't a PMID to make it easier
-# edge_list = edge_list.replace(" 10.1007/s11606-011-1968-2", "22282311")
-mti_refs = mti_refs.replace("^2-s.*$", np.NaN, regex=True)
-# check backslash escape here or just replace everything tha tisn't a PMID instead
-mti_refs = mti_refs.replace("^[0-9]{1,3}//..*$", np.NaN, regex=True)
+edge_list = []
 
-# Make edge list by melting the DF. Drop unnecessary column and NAs
-edge_list = pd.melt(mti_refs, id_vars=['0'], 
-                    value_vars=mti_refs.loc[:, 
-                    mti_refs.columns != '0'],
-                    value_name='1')
-edge_list = edge_list.drop("variable", axis=1)
-edge_list = edge_list.dropna()
+# Convert to edge list format and drop non-PMID identifiers:
+for sample in mti_refs:
+    for index in range(1, len(sample)):
+        if sample[index] is not np.NaN and re.match("^\d*$", sample[index]):
+            edge_list.append((sample[0], str(sample[index])))
 
-# Sort list, drop duplicates and save
-edge_list = edge_list.sort_values(by=['0'])
-edge_list = edge_list.drop_duplicates()
-edge_list.to_csv("edge_list.csv")
+# Remove duplicates:
+edge_list = list(set(edge_list))
+edge_list.sort()
+
+# Write output
+with open("./data/edge_list.csv", "w") as out:
+    for edge in edge_list:
+        out.write("".join([edge[0], ",", edge[1], "\n"]))
