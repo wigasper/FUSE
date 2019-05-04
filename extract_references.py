@@ -1,76 +1,86 @@
 #!/usr/bin/env python3
 
-import os
 import re
+import logging
 
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from bs4 import BeautifulSoup
-
+    
 mti_subset_train = pd.read_csv("./data/2013_MTI_in_OA_train.csv")
 
+# Set up logging
+logging.basicConfig(filename="errors.log", level=logging.INFO,
+                    filemode="w", format="%(levelname)s - %(message)s")
+logger = logging.getLogger()
+
 # List for the references
-mti_refs = [[]]
-
-# This list is for IDs that don't have the 'back' tag, to investigate later.
-ids_to_check = []
-
-# FileNotFoundErrors
-fnfe = []
+mti_refs = []
 
 # Extract references from the XML files
 for ID in tqdm(mti_subset_train['Accession ID']):
     try:
-        handle = open("./PMC XMLs/{}.xml".format(ID), "r")
-        soup = BeautifulSoup(handle.read())
-        
-        sample = [ID]
-        
-        # add IDs to the error list if they don't have the 'back' tag and to 
-        # the samples list if they do
-        if soup.back == None:
-        # should i do if soup.back is None: here?
-            ids_to_check.append(ID)
-        elif soup.back != None:
-        # if soup.back is not None: ???
-            for pubid in soup.back.find_all('pub-id'):
-                sample.append(pubid.string)
+        with open("./PMC XMLs/{}.xml".format(ID), "r") as handle:
+            soup = BeautifulSoup(handle.read())
             
-            mti_refs.append(sample)
+            sample = [ID]
+            
+            # add IDs to the error log if they don't have the 'back' tag and to 
+            # the samples list if they do
+            if soup.back is None:
+                logger.error("No refs: {}".format(str(ID)))
+            elif soup.back is not None:
+                for pubid in soup.back.find_all('pub-id'):
+                    sample.append(pubid.string)
+                mti_refs.append(sample)
     except FileNotFoundError:
-        fnfe.append(ID)
-    
-mti_refs = pd.DataFrame(mti_refs)
+        logger.error("FNFE: {}".format(str(ID)))
 
-##########################
-# Add source for pmc-ids here
-# Read in PMC_IDs to convert all the DOIs to PMIDs:
-PMC_ids = pd.read_csv("./data/PMC-ids.csv", low_memory=False)
+# PMC-ids.csv is used to convert DOIs to PMIDs, this file is available at:
+# https://www.ncbi.nlm.nih.gov/pmc/pmctopmid/
+pmc_ids = pd.read_csv("./data/PMC-ids.csv", low_memory=False)
 
 # Drop unneeded columns
-DOI_PMIDs = PMC_ids.drop(["Journal Title", "ISSN", "eISSN", "Year", "Volume",
-                         "Issue", "Page", "PMCID", "Manuscript Id", 
+pmc_ids = pmc_ids.drop(["Journal Title", "ISSN", "eISSN", "Year", "Volume",
+                         "Issue", "Page", "Manuscript Id", 
                          "Release Date"], axis=1)
-del(PMC_ids)
 
 # Change PMIDs from float64 in scientific notation to str
-DOI_PMIDs.PMID = DOI_PMIDs.PMID.fillna(0)
-DOI_PMIDs.PMID = DOI_PMIDs.PMID.astype(int).astype(str)
-DOI_PMIDs.PMID = DOI_PMIDs.PMID.replace("0", "NA")
+pmc_ids.PMID = pmc_ids.PMID.fillna(0)
+pmc_ids.PMID = pmc_ids.PMID.astype(int).astype(str)
+pmc_ids.PMID = pmc_ids.PMID.replace("0", "NA")
 
-# Find DOIs and convert them to PMIDs if possible
-####################################
-# abstract this to a function!!!!
-for row in tqdm(range(0, len(mti_refs))):
-    for col in range(0, len(mti_refs.columns)):
-        if re.match("^10\..*$", str(mti_refs.iloc[row, col])):
-            result = DOI_PMIDs[DOI_PMIDs.DOI == mti_refs.iloc[row, col]].PMID
-            if len(result) == 1:
-                 mti_refs.iloc[row, col] = result.item()
-            if len(result) == 0:
-                mti_refs.iloc[row, col] = np.NaN
+# This function converts a DOI or PMCID to a PMID
+def fetch_pmid(identifier, pmc_ids, logger):
+    if re.match("^10\..*$", identifier):
+        pmid = pmc_ids[pmc_ids.DOI == identifier].PMID
+        if not pmid.empty:
+            return pmid.item()
+        else:
+            return np.NaN
+    if re.match("^PMC.*$", identifier):
+        pmid = pmc_ids[pmc_ids.PMCID == identifier].PMID
+        if not pmid.empty:
+            return pmid.item()
+        else:
+            logger.error("PMCID conversion error: {}".format(identifier))
+            return identifier
+    
+    # Return original identifier if not a DOI or PMCID
+    return identifier
+
+# Convert IDs to PMIDs if possible
+for sample in tqdm(mti_refs):
+    for identifier in range(len(sample)):
+        sample[identifier] = fetch_pmid(sample[identifier], pmc_ids, logger)
+        
+
             
+        
+        
+        
+        
 # Remove IDs in other formats
 # add logic here to drop DOIs too, maybe just drop
 # everything that isn't a PMID to make it easier
