@@ -63,3 +63,10 @@ for doc in doc_refs_dict.keys():
                 
     term_counts.append([doc, doc_counts])
 
+# Change counts to relative frequency
+for doc in term_counts:
+    total_count = 0
+    for term_id in doc[1].keys():
+        total_count += doc[1][term_id]
+    for term_id in doc[1].keys():
+        doc[1][term_id] = doc[1][term_id] / total_count
