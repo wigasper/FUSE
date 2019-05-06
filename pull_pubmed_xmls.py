@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 # Set up logging
 logging.basicConfig(filename="errors.log", level=logging.INFO,
-                    filemode="w", format="PubMed pull: %(levelname)s - %(message)s")
+                    format="PubMed pull: %(levelname)s - %(message)s")
 logger = logging.getLogger()
 
 ids_to_get = []
@@ -25,7 +25,6 @@ with open("./data/edge_list.csv", "r") as handle:
 ids_to_get = list(dict.fromkeys(ids_to_get))
 
 for pmid in tqdm(ids_to_get):
-    #try:
     start_time = time.perf_counter()
     file = Path("./MeSH XMLs/{}.xml".format(pmid))
 
@@ -52,5 +51,3 @@ for pmid in tqdm(ids_to_get):
         # This is a delay in accordance with PubMed API usage guidelines.
         if time.perf_counter() - start_time < .4:
             time.sleep(.4 - (time.perf_counter() - start_time))
-    #except FileNotFoundError:
-    #    fnfe.append(ID)
