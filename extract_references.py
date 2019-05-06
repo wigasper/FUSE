@@ -14,6 +14,11 @@ with open("./data/2013_MTI_in_OA_train_nohead.csv", "r") as handle:
         line = line.split(",")
         accessions.append(line[3])
 
+with open("./data/2013_MTI_in_OA_test_nohead.csv", "r") as handle:
+    for line in handle:
+        line = line.split(",")
+        accessions.append(line[3])
+
 # Set up logging
 logging.basicConfig(filename="errors.log", level=logging.INFO,
                     format="Ref Extract: %(levelname)s - %(message)s")
