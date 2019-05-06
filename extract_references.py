@@ -16,7 +16,7 @@ with open("./data/2013_MTI_in_OA_train_nohead.csv", "r") as handle:
 
 # Set up logging
 logging.basicConfig(filename="errors.log", level=logging.INFO,
-                    filemode="w", format="Ref Extract: %(levelname)s - %(message)s")
+                    format="Ref Extract: %(levelname)s - %(message)s")
 logger = logging.getLogger()
 
 # List for the references
