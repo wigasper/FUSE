@@ -1,63 +1,65 @@
-# sandbox for prototyping getting of MeSH terms
-# how do I deal with qualifiers?
 
-import os
+import logging
 
-from Bio import Entrez
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-# OSX path:
-#os.chdir('/Users/wigasper/Documents/Research Project')
+# Set up logging
+logging.basicConfig(filename="errors.log", level=logging.INFO,
+                    format="MeSH Extract: %(levelname)s - %(message)s")
+logger = logging.getLogger()
 
-# Ubuntu path:
-#os.chdir('/home/wkg/Documents/Research Project')
-os.chdir('/media/wkg/storage/Research Project')
+doc_refs_dict = {}
 
-#ID = "10073946"
-#Entrez.email = "kgasper@unomaha.edu"
-#handle = Entrez.efetch(db="pubmed", id=ID, retmode="xml")
-#handle = open("./PMC XMLs/{}.xml".format(ID), "r")
+ids_to_get = []
 
-edge_list = pd.read_csv("./FUSE/edge_list.csv")
-edge_list = edge_list.loc[:, ~edge_list.columns.str.contains("^Unnamed")]
+with open("./data/edge_list.csv", "r") as handle:
+    for line in handle:
+        line = line.strip("\n").split(",")
+        
+        if line[0] not in doc_refs_dict.keys():
+            doc_refs_dict[line[0]] = []
+        
+        doc_refs_dict[line[0]].append(line[1])
+        
+        # Term extraction is the time limiting step, with a little extra work
+        # they can be put into their own list, delete duplicates, create a dict
+        # to save some minutes
+        ids_to_get.append(line[1])
 
-ids_to_get = edge_list["1"].tolist()
-
-# Drop duplicates:
+# Drop duplicates
 ids_to_get = list(dict.fromkeys(ids_to_get))
 
-#for ID in tqdm(edge_list[]):
+doc_term_dict = {}
+
+for pmid in tqdm(ids_to_get[0:500]):
     try:
-        handle = open("./MeSH XMLs/{}.xml".format(ID), "r")
-        soup = BeautifulSoup(handle.read())
-        
-        mesh_terms = [ID]
-        
-        #for mesh_heading in soup.find_all("meshheading"):
-        #    if mesh_heading.descriptorname != None:
-        #        #term_id = mesh_heading.descriptorname['ui']
-        #        term_id = mesh_heading.descriptorname.string
-        #        if mesh_heading.qualifiername != None:
-        #            for qualifier in mesh_heading.find_all("qualifiername"):
-        #                #term_id = "".join([term_id, ",", qualifier['ui']])
-        #                term_id = "".join([term_id, "/", qualifier.string])
-        #    mesh_terms.append(term_id)
+        with open("./MeSH XMLs/{}.xml".format(pmid), "r") as handle:
+            soup = BeautifulSoup(handle.read())
             
-        
-        for mesh_heading in soup.find_all("meshheading"):
-            if mesh_heading.descriptorname is not None:
-                term_id = mesh_heading.descriptorname['ui']
-                #term_id = mesh_heading.descriptorname.string
-                ##### For dealing with qualifiers:
-        #        if mesh_heading.qualifiername != None:
-        #            for qualifier in mesh_heading.find_all("qualifiername"):
-        #                #term_id = "".join([term_id, ",", qualifier['ui']])
-        #                #term_id = "".join([term_id, "/", qualifier.string])
-        #                mesh_terms.append("".join([term_id, "/", qualifier.string]))
-        #        else:
-        #            mesh_terms.append(term_id)
-                mesh_terms.append(term_id)
-            #mesh_terms.append(term_id)
+            mesh_terms = []
+                            
+            for mesh_heading in soup.find_all("meshheading"):
+                if mesh_heading.descriptorname is not None:
+                    term_id = mesh_heading.descriptorname['ui']
+                    mesh_terms.append(term_id)
+
+            doc_term_dict[pmid] = mesh_terms
             
-print(mesh_terms)
+    except FileNotFoundError:
+        logger.error("FNFE: {}".format(str(pmid)))
+
+# Get term counts for references of each parent node
+term_counts = []
+
+for doc in doc_refs_dict.keys():
+    doc_counts = {}
+    for ref in doc_refs_dict[doc]:
+        for term in doc_term_dict[ref]:
+            if term not in doc_counts.keys():
+                doc_counts[term] = 1
+            else:
+                doc_counts[term] += 1
+                
+    term_counts.append([doc, doc_counts])
+
