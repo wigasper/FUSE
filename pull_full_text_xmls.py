@@ -1,11 +1,16 @@
 import time
-import os
+import logging
 from pathlib import Path
 
 import xmltodict
 from Bio import Entrez
 import pandas as pd
 from tqdm import tqdm
+
+# Set up logging
+logging.basicConfig(filename="errors.log", level=logging.INFO,
+                    format="PMC pull: %(levelname)s - %(message)s")
+logger = logging.getLogger()
 
 # Add source for oa_file_list here
 oa_list = pd.read_csv("./data/oa_file_list.csv")
@@ -28,16 +33,13 @@ mti_subset_test.to_csv("2013_MTI_in_OA_test.csv")
 
 ids_to_get = mti_subset_train["Accession ID"].tolist() + mti_subset_test["Accession ID"].tolist()
 
-# PMC_errors stores any errors from PMC's side
-# Replace this with logging module in the future
-pmc_errors = []
-
-for ID in tqdm(ids_to_get):
+# Save full texts for each PMC ID
+for pmcid in tqdm(ids_to_get):
     start_time = time.perf_counter()
-    file = Path("./PMC XMLs/{}.xml".format(ID))
+    file = Path("./PMC XMLs/{}.xml".format(pmcid))
     if not file.exists():
         Entrez.email = "kgasper@unomaha.edu"
-        handle = Entrez.efetch(db="pmc", id=ID, retmode="xml")
+        handle = Entrez.efetch(db="pmc", id=pmcid, retmode="xml")
         xmlString = handle.read()
         element = xmltodict.parse(xmlString)
     
@@ -46,7 +48,7 @@ for ID in tqdm(ids_to_get):
         # Check for an error on PMC's side and record it
         for key in element['pmc-articleset'].keys():
             if key == 'error':
-                pmc_errors.append(ID)
+                logger.error("PMC API error - ID: {}".format(str(pmcid)))
                 pmc_error = True
     
         if not pmc_error:
