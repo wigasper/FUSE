@@ -146,13 +146,13 @@ for thresh in thresholds:
 
 with open("./data/metrics_by_class.csv", "w") as out:
     for index in range(len(thresholds)):
-        out.write("".join([thresholds[index], ","]))
-        out.write("".join([precisions[index], ","]))
-        out.write("".join([recalls[index], ","]))
-        out.write("".join([accuracies[index], ","]))
-        out.write("".join([f1s[index], ","]))
-        out.write("".join([tprs[index], ","]))
-        out.write("".join([fprs[index], "\n"]))
+        out.write("".join([str(thresholds[index]), ","]))
+        out.write("".join([str(precisions[index]), ","]))
+        out.write("".join([str(recalls[index]), ","]))
+        out.write("".join([str(accuracies[index]), ","]))
+        out.write("".join([str(f1s[index]), ","]))
+        out.write("".join([str(tprs[index]), ","]))
+        out.write("".join([str(fprs[index]), "\n"]))
         
 #########################################################
 # this calculates TP, TN, FP, FN for every sample
@@ -212,10 +212,10 @@ for thresh in thresholds:
     
 with open("./data/metrics_by_sample.csv", "w") as out:
     for index in range(len(thresholds)):
-        out.write("".join([thresholds[index], ","]))
-        out.write("".join([precisions[index], ","]))
-        out.write("".join([recalls[index], ","]))
-        out.write("".join([accuracies[index], ","]))
-        out.write("".join([f1s[index], ","]))
-        out.write("".join([tprs[index], ","]))
-        out.write("".join([fprs[index], "\n"]))
+        out.write("".join([str(thresholds[index]), ","]))
+        out.write("".join([str(precisions[index]), ","]))
+        out.write("".join([str(recalls[index]), ","]))
+        out.write("".join([str(accuracies[index]), ","]))
+        out.write("".join([str(f1s[index]), ","]))
+        out.write("".join([str(tprs[index]), ","]))
+        out.write("".join([str(fprs[index]), "\n"]))
