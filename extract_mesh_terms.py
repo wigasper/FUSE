@@ -78,6 +78,35 @@ for doc in term_counts:
     for term_id in doc[1].keys():
         doc[1][term_id] = doc[1][term_id] / total_count
 
-with open("./data/train_term_counts.json", "w") as out:
+# Why JSON? This is the most convenient format for the baseline model
+# A sparse matrix with 10k rows and 27k columns would take up significantly
+# more space and be more difficult to work with
+with open("./data/term_counts.json", "w") as out:
     json.dump(term_counts, out)
         
+# Get response MeSH terms to evaluate against
+response_ids = [sample[0] for sample in term_counts]
+
+# Create a dict to store the MeSH terms for each PMID
+doc_term_dict = {}
+
+# Extract MeSH terms for each PMID
+for pmid in tqdm(response_ids):
+    try:
+        with open("./MeSH XMLs/{}.xml".format(pmid), "r") as handle:
+            soup = BeautifulSoup(handle.read())
+            
+            mesh_terms = []
+                            
+            for mesh_heading in soup.find_all("meshheading"):
+                if mesh_heading.descriptorname is not None:
+                    term_id = mesh_heading.descriptorname['ui']
+                    mesh_terms.append(term_id)
+
+            doc_term_dict[pmid] = mesh_terms
+            
+    except FileNotFoundError:
+        logger.error("FNFE: {}".format(str(pmid)))
+
+with open("./data/baseline_solution.json", "w") as out:
+    json.dump(doc_term_dict, out)
