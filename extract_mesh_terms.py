@@ -81,7 +81,7 @@ for doc in term_counts:
 # Why JSON? This is the most convenient format for the baseline model
 # A sparse matrix with 10k rows and 27k columns would take up significantly
 # more space and be more difficult to work with
-with open("./data/term_counts.json", "w") as out:
+with open("./data/term_freqs.json", "w") as out:
     json.dump(term_counts, out)
         
 # Get response MeSH terms to evaluate against
