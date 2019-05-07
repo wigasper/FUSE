@@ -52,6 +52,8 @@ for thresh in thresholds:
         recall_vals.append(recall)
         f1_vals.append(f1)
     
+    # need to weight average precision here?
+    # see scikit-learn.org/stable/auto_examples/model_selection/plot_precision_recall.html
     precision_avgs.append(sum(precision_vals) / len(precision_vals))
     recall_avgs.append(sum(recall_vals) / len(recall_vals))
     f1_avgs.append(sum(f1_vals) / len(f1_vals))
@@ -73,3 +75,64 @@ pyplot.show()
 test = [val for key, val in doc[1].items() for doc in term_counts]
 import seaborn as sns
 sns.distplot(test)
+
+######################################################################
+#######################################################################
+######### try microaveraging here
+# from towardatascience.com/journey-to-the-center-of-multi-label-classification0384c40229bff
+# get a list of all possible classifications
+#descriptors = [desc for desc in sample[1].keys() for sample in term_counts]
+
+descriptors = []
+
+for pmid in solution.keys():
+    for descriptor in solution[pmid]:
+        descriptors.append(descriptor)
+
+for sample in term_counts:
+    for descriptor in sample[1].keys():
+        descriptors.append(descriptor)
+
+descriptors = list(dict.fromkeys(descriptors))
+
+
+thresholds = [x * .005 for x in range(0,200)]
+
+predictions = {}
+precisions = []
+recalls = []
+accuracies = []
+f1s = []
+tprs = []
+fprs = []
+
+for thresh in thresholds:
+    for doc in term_counts:
+        predictions[doc[0]] = [key for key, val in doc[1].items() if val > thresh]
+    true_pos = 0
+    false_pos = 0
+    true_neg = 0
+    false_neg = 0
+    for desc in descriptors:
+        for pmid in predictions:
+            if desc in predictions[pmid] and desc in solution[pmid]:
+                true_pos += 1
+            if desc in predictions[pmid] and desc not in solution[pmid]:
+                false_pos += 1
+            if desc not in predictions[pmid] and desc in solution[pmid]:
+                false_neg += 1
+            if desc not in predictions[pmid] and desc not in solution[pmid]:
+                true_neg += 1
+    
+    precision = true_pos / (true_pos + false_pos)
+    recall = true_pos / (true_pos + false_neg)
+    accuracy = (true_pos + true_neg) / (true_pos + true_neg + false_pos + false_neg)
+    f1 = (2 * precision * recall) / (precision + recall)
+    
+    
+    precisions.append(precision)
+    recalls.append(recall)
+    accuracies.append(accuracy)
+    f1s.append(f1)
+    tprs.append(true_pos / (true_pos + false_neg))
+    fprs.append(false_pos / (true_neg + false_pos))
