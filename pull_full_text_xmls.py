@@ -12,6 +12,9 @@ logging.basicConfig(filename="errors.log", level=logging.INFO,
                     format="PMC pull: %(levelname)s - %(message)s")
 logger = logging.getLogger()
 
+with open("ncbi.key") as handle:
+    api_key = handle.read()
+
 # Add source for oa_file_list here
 oa_list = pd.read_csv("./data/oa_file_list.csv")
 
@@ -39,6 +42,7 @@ for pmcid in tqdm(ids_to_get):
     file = Path("./PMC XMLs/{}.xml".format(pmcid))
     if not file.exists():
         Entrez.email = "kgasper@unomaha.edu"
+        Entrez.api_key = api_key
         handle = Entrez.efetch(db="pmc", id=pmcid, retmode="xml")
         xmlString = handle.read()
         element = xmltodict.parse(xmlString)

@@ -13,6 +13,9 @@ logging.basicConfig(filename="errors.log", level=logging.INFO,
                     format="PubMed pull: %(levelname)s - %(message)s")
 logger = logging.getLogger()
 
+with open("ncbi.key") as handle:
+    api_key = handle.read()
+
 ids_to_get = []
 
 with open("./data/edge_list.csv", "r") as handle:
@@ -30,6 +33,7 @@ for pmid in tqdm(ids_to_get):
 
     if not file.exists():
         Entrez.email = "kgasper@unomaha.edu"
+        Entrez.api_key = api_key
         handle = Entrez.efetch(db="pubmed", id=pmid, retmode="xml")
         xmlString = handle.read()
         element = xmltodict.parse(xmlString)
@@ -49,5 +53,5 @@ for pmid in tqdm(ids_to_get):
             logger.error("Not dict - ID: {}".format(pmid))
             
         # This is a delay in accordance with PubMed API usage guidelines.
-        if time.perf_counter() - start_time < .4:
-            time.sleep(.4 - (time.perf_counter() - start_time))
+        if time.perf_counter() - start_time < .1:
+            time.sleep(.1 - (time.perf_counter() - start_time))
