@@ -27,7 +27,7 @@ with open("./data/edge_list.csv", "r") as handle:
 # Drop duplicates:
 ids_to_get = list(dict.fromkeys(ids_to_get))
 
-for pmid in tqdm(ids_to_get):
+for pmid in ids_to_get:
     start_time = time.perf_counter()
     file = Path("./MeSH XMLs/{}.xml".format(pmid))
 
