@@ -19,6 +19,7 @@ thresholds = [x * .005 for x in range(0,200)]
 predictions = {}
 precision_avgs = []
 recall_avgs = []
+f1_avgs = []
 
 # Results as a list of tuples: (FPR, TPR)
 for thresh in thresholds:
@@ -28,6 +29,7 @@ for thresh in thresholds:
     # Calculate precision and recall
     precision_vals = []
     recall_vals = []
+    f1_vals = []
 
     for pmid in predictions.keys():
         true_pos = len([pred for pred in predictions[pmid] if pred in solution[pmid]])
@@ -35,14 +37,24 @@ for thresh in thresholds:
         false_neg = len([sol for sol in solution[pmid] if sol not in predictions[pmid]])
         
         if true_pos == 0:
-            precision_vals.append(0)
-            recall_vals.append(0)
+            precision = 0
+            recall = 0
+            f1 = 0
+            #precision_vals.append(0)
+            #recall_vals.append(0)
         else:
-            precision_vals.append(true_pos / (true_pos + false_pos))
-            recall_vals.append(true_pos / (true_pos + false_neg))
+            precision = true_pos / (true_pos + false_pos)
+            recall = true_pos / (true_pos + false_neg)
+            f1 = (2 * precision * recall) / (precision + recall)
+            #precision_vals.append(true_pos / (true_pos + false_pos))
+            #recall_vals.append(true_pos / (true_pos + false_neg))
+        precision_vals.append(precision)
+        recall_vals.append(recall)
+        f1_vals.append(f1)
     
     precision_avgs.append(sum(precision_vals) / len(precision_vals))
     recall_avgs.append(sum(recall_vals) / len(recall_vals))
+    f1_avgs.append(sum(f1_vals) / len(f1_vals))
     
 from sklearn.metrics import auc
 from matplotlib import pyplot
@@ -57,7 +69,7 @@ pyplot.show()
 # citations so this skews the false_neg values - totally unknown to 
 # classifier
     
-
+# best F1 at threshold .015 ....
 test = [val for key, val in doc[1].items() for doc in term_counts]
 import seaborn as sns
 sns.distplot(test)
