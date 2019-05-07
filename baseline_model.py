@@ -98,7 +98,7 @@ for sample in term_counts:
 descriptors = list(dict.fromkeys(descriptors))
 
 
-thresholds = [x * .01 for x in range(0,50)]
+thresholds = [x * .01 for x in range(0,15)]
 
 predictions = {}
 precisions = []
@@ -170,7 +170,7 @@ for sample in term_counts:
 descriptors = list(dict.fromkeys(descriptors))
 
 
-thresholds = [x * .01 for x in range(0,50)]
+thresholds = [x * .01 for x in range(0,15)]
 
 predictions = {}
 precisions = []
