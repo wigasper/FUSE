@@ -100,7 +100,7 @@ for sample in term_counts:
 descriptors = list(dict.fromkeys(descriptors))
 
 
-thresholds = [x * .01 for x in range(0,15)]
+thresholds = [x * .005 for x in range(0,200)]
 
 predictions = {}
 precisions = []
@@ -140,7 +140,7 @@ for thresh in thresholds:
     tprs.append(true_pos / (true_pos + false_neg))
     fprs.append(false_pos / (true_neg + false_pos))
     
-with open("./data/metrics_by_sample.csv", "w") as out:
+with open("./data/baseline_eval_metrics.csv", "w") as out:
     for index in range(len(thresholds)):
         out.write("".join([str(thresholds[index]), ","]))
         out.write("".join([str(precisions[index]), ","]))
