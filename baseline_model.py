@@ -12,31 +12,6 @@ with open("./data/train_term_counts.json", "r") as handle:
 # Load in solution values
 with open("./data/baseline_solution.json", "r") as handle:
     solution = json.load(handle)
-    
-#from sklearn.metrics import auc
-#from matplotlib import pyplot
-#
-#print("AUC: ", auc(recall_avgs, precision_avgs))
-#pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
-#pyplot.plot(recall_avgs, precision_avgs, marker=".")
-#pyplot.show()    
-    
-    
-# note: there can be positive solution values that are not in any of the 
-# citations so this skews the false_neg values - totally unknown to 
-# classifier
-    
-# best F1 at threshold .015 ....
-#test = [val for key, val in doc[1].items() for doc in term_counts]
-#import seaborn as sns
-#sns.distplot(test)
-
-######################################################################
-#######################################################################
-######### try microaveraging here
-# from towardatascience.com/journey-to-the-center-of-multi-label-classification0384c40229bff
-# get a list of all possible classifications
-#descriptors = [desc for desc in sample[1].keys() for sample in term_counts]
         
 #########################################################
 # this calculates TP, TN, FP, FN for every sample
@@ -105,3 +80,30 @@ with open("./data/baseline_eval_metrics.csv", "w") as out:
         out.write("".join([str(f1s[index]), ","]))
         out.write("".join([str(tprs[index]), ","]))
         out.write("".join([str(fprs[index]), "\n"]))
+
+precisions = []
+recalls = []
+accuracies = []
+f1s = []
+tprs = []
+fprs = []
+
+with open("./data/baseline_eval_metrics.csv", "r") as handle:
+    for line in handle:
+        line = line.strip("\n").split(",")
+        precisions.append(float(line[1]))
+        recalls.append(float(line[2]))
+        accuracies.append(float(line[3]))
+        f1s.append(float(line[4]))
+        tprs.append(float(line[5]))
+        fprs.append(float(line[6]))
+        
+        
+from sklearn.metrics import auc
+from matplotlib import pyplot
+
+# AUC
+print("AUC: ", auc(recalls, precisions))
+pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
+pyplot.plot(recalls, precisions, marker=".")
+pyplot.show()    
