@@ -43,8 +43,8 @@ for rec in records:
     distinct_tree_posits.append(len(tree_nums))
     # tree_num_lists.append(tree_nums)
 
-with open("./data/mesh_data.csv", "w") as out:
+with open("./data/mesh_data.tab", "w") as out:
     for index in range(len(records)):
-        out.write("".join([desc_uis[index], ",", desc_names[index], ","]))
-        out.write("".join([str(min_depths[index]), ","]))
+        out.write("".join([desc_uis[index], "\t", desc_names[index], "\t"]))
+        out.write("".join([str(min_depths[index]), "\t"]))
         out.write("".join([str(distinct_tree_posits[index]), "\n"]))
