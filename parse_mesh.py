@@ -21,18 +21,30 @@ records = records[2:]
 desc_records = []
 desc_uis = []
 desc_names = []
-tree_num_lists = []
+# tree_num_lists = []
 min_depths = []
+distinct_tree_posits = []
 
+# Extract data. tree_num_lists is currently commented out but this might be
+# useful to keep in the future
 for rec in records:
     soup = BeautifulSoup(rec)
+    
+    tree_nums = []
 
     desc_uis.append(soup.descriptorui.string)
     desc_names.append(soup.descriptorname.find('string').string)
-    tree_nums = []
     if soup.treenumberlist is not None:
         for tree_num in soup.treenumberlist.find_all('treenumber'):
             tree_nums.append(tree_num.string)
-    tree_num_lists.append(tree_nums)
+        min_depths.append(len(min([t.split(".") for t in tree_nums], key=len)))
+    else:
+        min_depths.append(0)
+    distinct_tree_posits.append(len(tree_nums))
+    # tree_num_lists.append(tree_nums)
 
-    min_depths.append(len(min([t.split(".") for t in tree_nums], key=len)))
+with open("./data/mesh_data.csv", "w") as out:
+    for index in range(len(records)):
+        out.write("".join([desc_uis[index], ",", desc_names[index], ","]))
+        out.write("".join([str(min_depths[index]), ","]))
+        out.write("".join([str(distinct_tree_posits[index]), "\n"]))
