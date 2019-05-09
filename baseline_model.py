@@ -3,19 +3,15 @@ import json
 from tqdm import tqdm
 
 # Load in term frequencies
-############################################
-############# change path after rebuild ####
-############################################
-with open("./data/train_term_counts.json", "r") as handle:
+with open("./data/term_freqs.json", "r") as handle:
     term_counts = json.load(handle)
 
 # Load in solution values
 with open("./data/baseline_solution.json", "r") as handle:
     solution = json.load(handle)
-        
-#########################################################
-# this calculates TP, TN, FP, FN for every sample
-    
+
+# Get a list of all potential labels for evaluation against
+# This needs to eventually be expanded to include all MeSH terms
 descriptors = []
 
 for pmid in solution.keys():
@@ -28,7 +24,8 @@ for sample in term_counts:
 
 descriptors = list(dict.fromkeys(descriptors))
 
-
+# Run the baseline model. This model will predict a term if its frequency
+# is greater than the threshold
 thresholds = [x * .005 for x in range(0,200)]
 
 predictions = {}
@@ -39,9 +36,13 @@ f1s = []
 tprs = []
 fprs = []
 
+# Run the model for all thresholds
 for thresh in thresholds:
+    # Predict
     for doc in term_counts:
         predictions[doc[0]] = [key for key, val in doc[1].items() if val > thresh]
+        
+    # Get evaluation metrics
     true_pos = 0
     false_pos = 0
     true_neg = 0
@@ -70,7 +71,8 @@ for thresh in thresholds:
     f1s.append(f1)
     tprs.append(true_pos / (true_pos + false_neg))
     fprs.append(false_pos / (true_neg + false_pos))
-    
+
+# Write evaluation metrics
 with open("./data/baseline_eval_metrics.csv", "w") as out:
     for index in range(len(thresholds)):
         out.write("".join([str(thresholds[index]), ","]))
@@ -81,6 +83,7 @@ with open("./data/baseline_eval_metrics.csv", "w") as out:
         out.write("".join([str(tprs[index]), ","]))
         out.write("".join([str(fprs[index]), "\n"]))
 
+# This code is for reading in evaluation metrics for later examination
 precisions = []
 recalls = []
 accuracies = []
