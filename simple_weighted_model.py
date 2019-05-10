@@ -27,16 +27,21 @@ def weight(ui, weight_dict=ui_depths):
 # is greater than the threshold
 thresholds = [x * .005 for x in range(0,200)]
 
+
+# Note: using a simple weight where depth / any divisor up to max(depths)
+# did nothing for auc
 predictions = {}
 precisions = []
 recalls = []
 f1s = []
-
 # Run the model for all thresholds
 for thresh in thresholds:
     # Predict
     for doc in term_freqs:
-        predictions[doc[0]] = [key for key, val in doc[1].items() if (weight(key) * val) > thresh]
+        #predictions[doc[0]] = [key for key, val in doc[1].items() if (weight(key) * val) > thresh]
+        #################################### for this test run
+        #predictions[doc[0]] = [key for key, val in doc[1].items() if ((ui_depths[key] / divisor) * val) > thresh]
+        ######################################
         
     # Get evaluation metrics
     true_pos = 0
@@ -61,6 +66,8 @@ for thresh in thresholds:
     recalls.append(recall)
     f1s.append(f1)
         
+aucs.append(auc(recalls, precisions))
+
 # AUC
 print("AUC: ", auc(recalls, precisions))
 pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
