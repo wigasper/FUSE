@@ -38,7 +38,7 @@ doc_term_dict = {}
 # Extract MeSH terms for each PMID
 for pmid in tqdm(ids_to_get):
     try:
-        with open("./MeSH XMLs/{}.xml".format(pmid), "r") as handle:
+        with open("./mesh_xmls/{}.xml".format(pmid), "r") as handle:
             soup = BeautifulSoup(handle.read())
             
             mesh_terms = []
@@ -93,7 +93,7 @@ doc_term_dict = {}
 # Extract MeSH terms for each PMID
 for pmid in tqdm(response_ids):
     try:
-        with open("./MeSH XMLs/{}.xml".format(pmid), "r") as handle:
+        with open("./mesh_xmls/{}.xml".format(pmid), "r") as handle:
             soup = BeautifulSoup(handle.read())
             
             mesh_terms = []

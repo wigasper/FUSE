@@ -30,7 +30,7 @@ mti_refs = []
 # Extract references from the XML files
 for ID in tqdm(accessions):
     try:
-        with open("./PMC XMLs/{}.xml".format(ID), "r") as handle:
+        with open("./pmc_xmls/{}.xml".format(ID), "r") as handle:
             soup = BeautifulSoup(handle.read())
             
             sample = [ID]
