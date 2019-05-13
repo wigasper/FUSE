@@ -21,7 +21,7 @@ records = records[2:]
 desc_records = []
 desc_uis = []
 desc_names = []
-# tree_num_lists = []
+tree_num_lists = []
 min_depths = []
 distinct_tree_posits = []
 
@@ -41,10 +41,12 @@ for rec in records:
     else:
         min_depths.append(0)
     distinct_tree_posits.append(len(tree_nums))
-    # tree_num_lists.append(tree_nums)
+    tree_num_lists.append(tree_nums)
 
 with open("./data/mesh_data.tab", "w") as out:
     for index in range(len(records)):
         out.write("".join([desc_uis[index], "\t", desc_names[index], "\t"]))
         out.write("".join([str(min_depths[index]), "\t"]))
-        out.write("".join([str(distinct_tree_posits[index]), "\n"]))
+        out.write("".join([str(distinct_tree_posits[index]), "\t"]))
+        out.write(",".join(tree_num_lists))
+        out.write("\n")
