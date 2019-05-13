@@ -48,5 +48,5 @@ with open("./data/mesh_data.tab", "w") as out:
         out.write("".join([desc_uis[index], "\t", desc_names[index], "\t"]))
         out.write("".join([str(min_depths[index]), "\t"]))
         out.write("".join([str(distinct_tree_posits[index]), "\t"]))
-        out.write(",".join(tree_num_lists))
+        out.write(",".join(tree_num_lists[index]))
         out.write("\n")
