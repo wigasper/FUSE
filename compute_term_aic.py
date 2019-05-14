@@ -21,31 +21,37 @@ docs = os.listdir("./mesh_xmls")
 # Create doc_tree dict for quick and easy lookup later
 doc_tree = {uids[idx]:trees[idx] for idx in range(len(uids))}
 
-term_counts = {uid:0 for uid in uids}
+#########################################
+# commented out for run
+#########################################
+#term_counts = {uid:0 for uid in uids}
+#
+## Count MeSH terms
+#for doc in tqdm(docs):
+#    with open("./mesh_xmls/{}".format(doc), "r") as handle:
+#        soup = BeautifulSoup(handle.read())
+#        
+#        mesh_terms = []
+#                        
+#        for mesh_heading in soup.find_all("meshheading"):
+#            if mesh_heading.descriptorname is not None:
+#                term_id = mesh_heading.descriptorname['ui']
+#                term_counts[term_id] += 1
+##########################################
+##########################################
 
-# Count MeSH terms
-for doc in tqdm(docs):
-    with open("./mesh_xmls/{}".format(doc), "r") as handle:
-        soup = BeautifulSoup(handle.read())
-        
-        mesh_terms = []
-                        
-        for mesh_heading in soup.find_all("meshheading"):
-            if mesh_heading.descriptorname is not None:
-                term_id = mesh_heading.descriptorname['ui']
-                term_counts[term_id] += 1
-
-###################################
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+# Delete eventually
 #with open ("./data/mesh_term_doc_counts.csv", "w") as out:
 #    for term in term_counts.items():
 #        out.write("".join([term[0], ",", str(term[1]), "\n"]))
 #
-#term_counts = {}
-#with open("./data/mesh_term_doc_counts.csv", "r") as handle:
-#    for line in handle:
-#        line = line.strip("\n").split(",")
-#        term_counts[line[0]] = int(line[1])
-#####################################
+term_counts = {}
+with open("./data/mesh_term_doc_counts.csv", "r") as handle:
+    for line in handle:
+        line = line.strip("\n").split(",")
+        term_counts[line[0]] = int(line[1])
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
         
 # what is the deepest tree?
 #longest = 0
@@ -95,3 +101,7 @@ def freq(uid):
 
 for doc in term_freqs.keys():
     term_freqs[doc] = freq(doc)
+
+with open ("./data/mesh_term_freq_vals.csv", "w") as out:
+    for term in term_freqs.items():
+        out.write("".join([term[0], ",", str(term[1]), "\n"]))
