@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import re
 
 from bs4 import BeautifulSoup
 from tqdm import tqdm
@@ -37,35 +36,35 @@ for doc in tqdm(docs):
                 term_counts[term_id] += 1
 
 ###################################
-with open ("./data/mesh_term_doc_counts.csv", "w") as out:
-    for term in term_counts.items():
-        out.write("".join([term[0], ",", str(term[1]), "\n"]))
-
-term_counts = {}
-with open("./data/mesh_term_doc_counts.csv", "r") as handle:
-    for line in handle:
-        line = line.strip("\n").split(",")
-        term_counts[line[0]] = int(line[1])
+#with open ("./data/mesh_term_doc_counts.csv", "w") as out:
+#    for term in term_counts.items():
+#        out.write("".join([term[0], ",", str(term[1]), "\n"]))
+#
+#term_counts = {}
+#with open("./data/mesh_term_doc_counts.csv", "r") as handle:
+#    for line in handle:
+#        line = line.strip("\n").split(",")
+#        term_counts[line[0]] = int(line[1])
 #####################################
         
 # what is the deepest tree?
-longest = 0
-longest_doc = ""
-for doc in doc_tree.keys():
-    for tree in doc_tree[doc]:
-        if len(tree.split(".")) > longest:
-            longest = len(tree.split("."))
-            longest_doc = doc
+#longest = 0
+#longest_doc = ""
+#for doc in doc_tree.keys():
+#    for tree in doc_tree[doc]:
+#        if len(tree.split(".")) > longest:
+#            longest = len(tree.split("."))
+#            longest_doc = doc
             
-term_freqs = {uid:0 for uid in uids}
+term_freqs = {uid:-1 for uid in uids}
 
 # First let's get the obvious leaf nodes out of the way, don't need to do this
 # recursively
-for doc in term_freqs.keys():
-    for tree in doc_tree[doc]:
-        if len(tree.split(".")) == 13:
-            term_freqs[doc] = term_counts[doc]
-# memoize to avoid recomputation
+#for doc in term_freqs.keys():
+#    for tree in doc_tree[doc]:
+#        if len(tree.split(".")) == 13:
+#            term_freqs[doc] = term_counts[doc]
+# memoize to avoid recomputation?
 
 def get_children(uid):
     children = []
@@ -83,6 +82,8 @@ def get_children(uid):
 def freq(uid):
     #total=0
     total = term_counts[uid]
+    if term_freqs[uid] != -1:
+        return term_freqs[uid]
     if len(get_children(uid)) == 0:
         #return term_counts[uid]
         return total
@@ -91,5 +92,6 @@ def freq(uid):
             total += freq(child)
         return total
         #return total
-    
-    return total
+
+for doc in term_freqs.keys():
+    term_freqs[doc] = freq(doc)
