@@ -2,10 +2,16 @@
 
 import os
 from math import log
+import logging
 
 import numpy as np
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+
+# Set up logging
+logging.basicConfig(filename="errors.log", level=logging.INFO,
+                    format="AIC Compute: %(levelname)s - %(message)s")
+logger = logging.getLogger()
 
 uids = []
 names = []
@@ -132,10 +138,10 @@ for term in term_probs.keys():
     for root in term_roots:
         if term_freqs[roots[root]] != 0:
             probs.append(term_freqs[term] / term_freqs[roots[root]])
-        # This is a really bad thing, need to clear this up
-        else:
-            probs.append(term_freqs[term] / .00000000000001)
-    #mean_prob = sum(probs) / len(probs)
+        elif term_freqs[term] == 0 and term_freqs[roots[root]] == 0:
+            probs.append(0)
+        elif term_freqs[term] != 0 and term_freqs[roots[root]] == 0:
+            logger.error("Bad div by 0: {}".format(term))
     term_probs[term] = sum(probs) / len(probs)
     
 ics = {uid:-1 for uid in uids}
