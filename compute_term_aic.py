@@ -172,11 +172,12 @@ for term in sws:
 # of all its ancestors
 svs = {uid:np.NaN for uid in uids}
 for term in svs:
-    sv = 0
+    sv = sws[term]
     ancestors = [".".join(tree.split(".")[:-1]) for tree in term_trees[term]]
     ancestors = [ancestor for ancestor in ancestors if ancestor]
     while ancestors:
-        sv += sws[term_trees_rev[ancestors[0]]]
+        if sws[term_trees_rev[ancestors[0]]] is not np.NaN:
+            sv += sws[term_trees_rev[ancestors[0]]]
         ancestors.extend([".".join(tree.split(".")[:-1]) for tree in term_trees[term_trees_rev[ancestors[0]]]])
         ancestors = [ancestor for ancestor in ancestors if ancestor]
         ancestors = ancestors[1:]
