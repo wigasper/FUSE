@@ -2,7 +2,9 @@
 
 import os
 import math
+import json
 import logging
+from itertools import combinations
 
 import numpy as np
 from bs4 import BeautifulSoup
@@ -26,6 +28,7 @@ def get_children(uid, term_trees):
     
     return list(dict.fromkeys(children))
 
+# Refactor without recursion later? Use stack? i.e. breadth first search
 def freq(uid, term_counts, term_freqs, term_trees):
     total = term_counts[uid]
     if term_freqs[uid] != -1:
@@ -52,14 +55,14 @@ def get_ancestors(uid, term_trees, term_trees_rev):
     ancestors = list(dict.fromkeys(ancestors))
     return ancestors
     
-# incomplete!!!!!!!!
 def semantic_similarity(uid1, uid2, sws, svs):
     uid1_ancs = get_ancestors(uid1, term_trees, term_trees_rev)
     uid2_ancs = get_ancestors(uid2, term_trees, term_trees_rev)
     intersection = [anc for anc in uid1_ancs if anc in uid2_ancs]
-    numerator = sum([(2 * sws[term_trees_rev[tree]]) for tree in intersection])
+    num = sum([(2 * sws[term]) for term in intersection])
+    denom = svs[uid1] + svs[uid2]
     
-    return 0 if numerator is np.NaN else numerator / (svs[uid1] + svs[uid2])
+    return 0 if num is np.NaN or denom is 0 else num / denom
 
 # Set up logging
 logger = logging.getLogger("compute_term_aic.py")
@@ -113,14 +116,14 @@ for doc in tqdm(docs):
 #
 #term_counts = {}
 #with open("./data/mesh_term_doc_counts.csv", "r") as handle:
-#    for line in handle:
+#    for line in handle:    #if ics[term] is not np.NaN:
 #        line = line.strip("\n").split(",")
 #        term_counts[line[0]] = int(line[1])
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
     
 #########################################
 # comment out for run
-#########################################
+########################################## 
 term_freqs = {uid:-1 for uid in uids}
 for term in term_freqs.keys():
     term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
@@ -139,33 +142,23 @@ with open("./data/mesh_term_freq_vals.csv", "r") as handle:
         term_freqs[line[0]] = int(line[1])
 #################################################
 
+root_freq = sum(term_freqs.values())
 # Get all root UIDs
-roots = {}
-for term in term_trees:
-    for tree in term_trees[term]:
-        if len(tree.split(".")) == 1:
-            roots[tree] = term
+#roots = {}
+#for term in term_trees:
+#    for tree in term_trees[term]:
+#        if len(tree.split(".")) == 1:
+#            roots[tree] = term
 
 # Computing aggregate information content is done in a step-by-step
-# process here to make it easy to follow along. I used Song, Li, Srimani,
+# process here to make it     #if ics[term] is not np.NaN:easy to follow along. I used Song, Li, Srimani,
 # Yu, and Wang's paper, "Measure the Semantic Similarity of GO Terms Using
 # Aggregate Information Content" as a guide
             
 # Get term probs
 term_probs = {uid:-1 for uid in uids}
 for term in term_probs:
-    term_roots = [tree.split(".")[0] for tree in term_trees[term]]
-    
-    probs = []
-    for root in term_roots:
-        try:
-            if term_freqs[roots[root]] != 0:
-                probs.append(term_freqs[term] / term_freqs[roots[root]])
-            elif term_freqs[term] == 0 and term_freqs[roots[root]] == 0:
-                probs.append(0)
-        except ZeroDivisionError:
-            logger.error("term_probs compute ZeroDivisionError: {}".format(term))
-    term_probs[term] = sum(probs) / len(probs)
+    term_probs[term] = term_freqs[term] / root_freq
 
 # Compute IC values
 ics = {uid:np.NaN for uid in uids}
@@ -176,17 +169,12 @@ for term in ics:
 # Compute knowledge for each term
 knowledge = {uid:np.NaN for uid in uids}
 for term in knowledge:
-    try:
-        if ics[term] is not np.NaN:
-            knowledge[term] = 1 / ics[term]
-    except ZeroDivisionError:
-        logger.error("knowledge compute ZeroDivisionError: {}".format(term))
+    knowledge[term] = 1 / ics[term]
         
 # Compute semantic weight for each term
 sws = {uid:np.NaN for uid in uids}
 for term in sws:
-    if knowledge[term] is not np.NaN:
-        sws[term] = 1 / (1 + math.exp(-1 * knowledge[term]))
+    sws[term] = 1 / (1 + math.exp(-1 * knowledge[term]))
     
 # Compute semantic value for each term by adding the semantic weights
 # of all its ancestors
@@ -194,13 +182,14 @@ svs = {uid:np.NaN for uid in uids}
 for term in svs:
     sv = 0
     ancestors = get_ancestors(term, term_trees, term_trees_rev)
-    #sv = sws[term]
     for ancestor in ancestors:
-        if sws[ancestor] is not np.NaN:
-            # might be double adding here, need to orrect
-            sv += sws[ancestor]
+        sv += sws[ancestor]
     svs[term] = sv
-    
-with open("svs.new.test", "w") as out:
-    for sv in svs:
-        out.write("".join([sv, ",", str(svs[sv]), "\n"]))
+
+# Compute semantic similarity for each pair
+pairs = {}
+for pair in combinations(uids, 2):
+    pairs[str(pair)] = semantic_similarity(pair[0], pair[1], sws, svs)
+
+with open("./data/semantic_similarities.json", "w") as out:
+    json.dump(pairs, out)
