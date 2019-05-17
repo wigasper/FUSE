@@ -8,7 +8,7 @@ import numpy as np
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-def get_children(uid, term_trees=term_trees):
+def get_children(uid, term_trees):
     # Return empty list for terms (like 'D005260' - 'Female') that aren't
     # actually part of any trees
     if len(term_trees[uid][0]) == 0:
@@ -26,19 +26,21 @@ def get_children(uid, term_trees=term_trees):
     
     return list(dict.fromkeys(children))
 
-def freq(uid, term_counts=term_counts, term_freqs=term_freqs):
+def freq(uid, term_counts, term_freqs, term_trees):
     total = term_counts[uid]
     if term_freqs[uid] != -1:
         return term_freqs[uid]
-    if len(get_children(uid)) == 0:
+    if len(get_children(uid, term_trees)) == 0:
         return total
     else:
         for child in get_children(uid):
             total += freq(child)
         return total
 
-def get_ancestors(uid, term_trees=term_trees, term_trees_rev=term_trees_rev):
-    ancestors = [".".join(tree.split(".")[:-1]) for tree in term_trees[uid]]
+# According to the paper, the ancestor set includes the term itself
+def get_ancestors(uid, term_trees, term_trees_rev):
+    ancestors = [tree for tree in term_trees[uid]]
+    # Remove empty strings if they exist
     ancestors = [ancestor for ancestor in ancestors if ancestor]
     idx = 0
     while idx < len(ancestors):
@@ -46,14 +48,19 @@ def get_ancestors(uid, term_trees=term_trees, term_trees_rev=term_trees_rev):
         ancestors = [ancestor for ancestor in ancestors if ancestor]
         ancestors = list(dict.fromkeys(ancestors))
         idx += 1
+    ancestors = [term_trees_rev[ancestor] for ancestor in ancestors]
+    ancestors = list(dict.fromkeys(ancestors))
     return ancestors
     
 # incomplete!!!!!!!!
-def semantic_similarity(uid1, uid2, sws=sws, svs=svs):
-    uid1_ancs = get_ancestors(uid1)
-    uid2_ancs = get_ancestors(uid2)
+def semantic_similarity(uid1, uid2, sws, svs):
+    uid1_ancs = get_ancestors(uid1, term_trees, term_trees_rev)
+    uid2_ancs = get_ancestors(uid2, term_trees, term_trees_rev)
     intersection = [anc for anc in uid1_ancs if anc in uid2_ancs]
+    numerator = sum([(2 * sws[term_trees_rev[tree]]) for tree in intersection])
     
+    return 0 if numerator is np.NaN else numerator / (svs[uid1] + svs[uid2])
+
 # Set up logging
 logger = logging.getLogger("compute_term_aic.py")
 logger.setLevel(logging.INFO)
@@ -116,7 +123,7 @@ for doc in tqdm(docs):
 #########################################
 term_freqs = {uid:-1 for uid in uids}
 for term in term_freqs.keys():
-    term_freqs[term] = freq(term)
+    term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
 ##########################################
 ##########################################
 
@@ -185,9 +192,15 @@ for term in sws:
 # of all its ancestors
 svs = {uid:np.NaN for uid in uids}
 for term in svs:
-    ancestors = get_ancestors(term)
-    sv = sws[term]
+    sv = 0
+    ancestors = get_ancestors(term, term_trees, term_trees_rev)
+    #sv = sws[term]
     for ancestor in ancestors:
-        if sws[term_trees_rev[ancestors[0]]] is not np.NaN:
-            sv += sws[term_trees_rev[ancestors[0]]]
+        if sws[ancestor] is not np.NaN:
+            # might be double adding here, need to orrect
+            sv += sws[ancestor]
     svs[term] = sv
+    
+with open("svs.new.test", "w") as out:
+    for sv in svs:
+        out.write("".join([sv, ",", str(svs[sv]), "\n"]))
