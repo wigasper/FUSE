@@ -8,13 +8,59 @@ import numpy as np
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+def get_children(uid, term_trees=term_trees):
+    # Return empty list for terms (like 'D005260' - 'Female') that aren't
+    # actually part of any trees
+    if len(term_trees[uid][0]) == 0:
+        return []
+    
+    children = []
+
+    for tree in term_trees[uid]:
+        parent_depth = len(tree.split("."))
+        for key, vals in term_trees.items():
+            for val in vals:
+                child_depth = len(val.split("."))
+                if tree in val and uid != key and child_depth == parent_depth + 1:
+                    children.append(key)
+    
+    return list(dict.fromkeys(children))
+
+def freq(uid, term_counts=term_counts, term_freqs=term_freqs):
+    total = term_counts[uid]
+    if term_freqs[uid] != -1:
+        return term_freqs[uid]
+    if len(get_children(uid)) == 0:
+        return total
+    else:
+        for child in get_children(uid):
+            total += freq(child)
+        return total
+
+def get_ancestors(uid, term_trees=term_trees, term_trees_rev=term_trees_rev):
+    ancestors = [".".join(tree.split(".")[:-1]) for tree in term_trees[uid]]
+    ancestors = [ancestor for ancestor in ancestors if ancestor]
+    idx = 0
+    while idx < len(ancestors):
+        ancestors.extend([".".join(tree.split(".")[:-1]) for tree in term_trees[term_trees_rev[ancestors[idx]]]])
+        ancestors = [ancestor for ancestor in ancestors if ancestor]
+        ancestors = list(dict.fromkeys(ancestors))
+        idx += 1
+    return ancestors
+    
+# incomplete!!!!!!!!
+def semantic_similarity(uid1, uid2, sws=sws, svs=svs):
+    uid1_ancs = get_ancestors(uid1)
+    uid2_ancs = get_ancestors(uid2)
+    intersection = [anc for anc in uid1_ancs if anc in uid2_ancs]
+    
 # Set up logging
-#logging.basicConfig(filename="errors.log", level=logging.ERROR,
-#                    format="%(asctime)s - %(levelname)s - %(modules)s: %(funcName)s - %(message)s",
-#                    datefmt="%d %b, %H%M")
-logging.basicConfig(filename="errors.log", level=logging.INFO,
-                    format="Compute term AIC: %(levelname)s - %(message)s")
-logger = logging.getLogger()
+logger = logging.getLogger("compute_term_aic.py")
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler("errors.log")
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 uids = []
 names = []
@@ -34,21 +80,21 @@ term_trees = {uids[idx]:trees[idx] for idx in range(len(uids))}
 term_trees_rev = {tree:uids[idx] for idx in range(len(uids)) for tree in trees[idx]}
 
 #########################################
-# commented out for run
+# comment out for run
 #########################################
-#term_counts = {uid:0 for uid in uids}
-#
-## Count MeSH terms
-#for doc in tqdm(docs):
-#    with open("./mesh_xmls/{}".format(doc), "r") as handle:
-#        soup = BeautifulSoup(handle.read())
-#        
-#        mesh_terms = []
-#                        
-#        for mesh_heading in soup.find_all("meshheading"):
-#            if mesh_heading.descriptorname is not None:
-#                term_id = mesh_heading.descriptorname['ui']
-#                term_counts[term_id] += 1
+term_counts = {uid:0 for uid in uids}
+
+# Count MeSH terms
+for doc in tqdm(docs):
+    with open("./mesh_xmls/{}".format(doc), "r") as handle:
+        soup = BeautifulSoup(handle.read())
+        
+        mesh_terms = []
+                        
+        for mesh_heading in soup.find_all("meshheading"):
+            if mesh_heading.descriptorname is not None:
+                term_id = mesh_heading.descriptorname['ui']
+                term_counts[term_id] += 1
 ##########################################
 ##########################################
 
@@ -58,54 +104,21 @@ term_trees_rev = {tree:uids[idx] for idx in range(len(uids)) for tree in trees[i
 #    for term in term_counts.items():
 #        out.write("".join([term[0], ",", str(term[1]), "\n"]))
 #
-term_counts = {}
-with open("./data/mesh_term_doc_counts.csv", "r") as handle:
-    for line in handle:
-        line = line.strip("\n").split(",")
-        term_counts[line[0]] = int(line[1])
+#term_counts = {}
+#with open("./data/mesh_term_doc_counts.csv", "r") as handle:
+#    for line in handle:
+#        line = line.strip("\n").split(",")
+#        term_counts[line[0]] = int(line[1])
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-        
-# what is the deepest tree?
-#longest = 0
-#longest_doc = ""
-#for doc in doc_tree.keys():
-#    for tree in doc_tree[doc]:
-#        if len(tree.split(".")) > longest:
-#            longest = len(tree.split("."))
-#            longest_doc = doc
-
-def get_children(uid):
-    # Return empty list for terms (like 'D005260' - 'Female') that aren't
-    # actually part of any trees
-    if len(term_trees[uid][0]) == 0:
-        return []
     
-    children = []
-
-    for tree in term_trees[uid]:
-        parent_depth = len(tree.split("."))
-        for key, vals in term_trees.items():
-            for val in vals:
-                child_depth = len(val.split("."))
-                if tree in val and uid != key and child_depth == parent_depth + 1:
-                    children.append(key)
-    
-    return list(dict.fromkeys(children))
-
-def freq(uid):
-    total = term_counts[uid]
-    if term_freqs[uid] != -1:
-        return term_freqs[uid]
-    if len(get_children(uid)) == 0:
-        return total
-    else:
-        for child in get_children(uid):
-            total += freq(child)
-        return total
-
+#########################################
+# comment out for run
+#########################################
 term_freqs = {uid:-1 for uid in uids}
 for term in term_freqs.keys():
     term_freqs[term] = freq(term)
+##########################################
+##########################################
 
 ###################################################
 #with open ("./data/mesh_term_freq_vals.csv", "w") as out:
@@ -144,7 +157,7 @@ for term in term_probs:
             elif term_freqs[term] == 0 and term_freqs[roots[root]] == 0:
                 probs.append(0)
         except ZeroDivisionError:
-            logger.error("Bad div by 0 at term_probs compute step: {}".format(term))
+            logger.error("term_probs compute ZeroDivisionError: {}".format(term))
     term_probs[term] = sum(probs) / len(probs)
 
 # Compute IC values
@@ -160,7 +173,7 @@ for term in knowledge:
         if ics[term] is not np.NaN:
             knowledge[term] = 1 / ics[term]
     except ZeroDivisionError:
-        logger.error("Bad div by 0 at knowledge compute step: {}".format(term))
+        logger.error("knowledge compute ZeroDivisionError: {}".format(term))
         
 # Compute semantic weight for each term
 sws = {uid:np.NaN for uid in uids}
@@ -172,13 +185,9 @@ for term in sws:
 # of all its ancestors
 svs = {uid:np.NaN for uid in uids}
 for term in svs:
+    ancestors = get_ancestors(term)
     sv = sws[term]
-    ancestors = [".".join(tree.split(".")[:-1]) for tree in term_trees[term]]
-    ancestors = [ancestor for ancestor in ancestors if ancestor]
-    while ancestors:
+    for ancestor in ancestors:
         if sws[term_trees_rev[ancestors[0]]] is not np.NaN:
             sv += sws[term_trees_rev[ancestors[0]]]
-        ancestors.extend([".".join(tree.split(".")[:-1]) for tree in term_trees[term_trees_rev[ancestors[0]]]])
-        ancestors = [ancestor for ancestor in ancestors if ancestor]
-        ancestors = ancestors[1:]
     svs[term] = sv
