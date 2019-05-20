@@ -2,8 +2,8 @@
 
 import os
 import math
-import json
 import logging
+import traceback
 from itertools import combinations
 
 import numpy as np
@@ -89,69 +89,34 @@ docs = os.listdir("./mesh_xmls")
 term_trees = {uids[idx]:trees[idx] for idx in range(len(uids))}
 term_trees_rev = {tree:uids[idx] for idx in range(len(uids)) for tree in trees[idx]}
 
-#########################################
-# comment out for run
-#########################################
 term_counts = {uid:0 for uid in uids}
 
-# Count MeSH terms
-for doc in tqdm(docs):
-    with open("./mesh_xmls/{}".format(doc), "r") as handle:
-        soup = BeautifulSoup(handle.read())
-        
-        mesh_terms = []
-                        
-        for mesh_heading in soup.find_all("meshheading"):
-            if mesh_heading.descriptorname is not None:
-                term_id = mesh_heading.descriptorname['ui']
-                term_counts[term_id] += 1
-##########################################
-##########################################
+## Count MeSH terms
+#for doc in tqdm(docs):
+#    with open("./mesh_xmls/{}".format(doc), "r") as handle:
+#        soup = BeautifulSoup(handle.read())
+#        
+#        mesh_terms = []
+#                        
+#        for mesh_heading in soup.find_all("meshheading"):
+#            if mesh_heading.descriptorname is not None:
+#                term_id = mesh_heading.descriptorname['ui']
+#                term_counts[term_id] += 1
+#    
+#term_freqs = {uid:-1 for uid in uids}
+#for term in term_freqs.keys():
+#    term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
 
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# Delete eventually
-#with open ("./data/mesh_term_doc_counts.csv", "w") as out:
-#    for term in term_counts.items():
-#        out.write("".join([term[0], ",", str(term[1]), "\n"]))
-#
-#term_counts = {}
-#with open("./data/mesh_term_doc_counts.csv", "r") as handle:
-#    for line in handle:    #if ics[term] is not np.NaN:
-#        line = line.strip("\n").split(",")
-#        term_counts[line[0]] = int(line[1])
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-    
-#########################################
-# comment out for run
-########################################## 
-term_freqs = {uid:-1 for uid in uids}
-for term in term_freqs.keys():
-    term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
-##########################################
-##########################################
-
-###################################################
-#with open ("./data/mesh_term_freq_vals.csv", "w") as out:
-#    for term in term_freqs.items():
-#        out.write("".join([term[0], ",", str(term[1]), "\n"]))
-#
 term_freqs = {}
 with open("./data/mesh_term_freq_vals.csv", "r") as handle:
     for line in handle:
         line = line.strip("\n").split(",")
         term_freqs[line[0]] = int(line[1])
-#################################################
 
 root_freq = sum(term_freqs.values())
-# Get all root UIDs
-#roots = {}
-#for term in term_trees:
-#    for tree in term_trees[term]:
-#        if len(tree.split(".")) == 1:
-#            roots[tree] = term
 
 # Computing aggregate information content is done in a step-by-step
-# process here to make it     #if ics[term] is not np.NaN:easy to follow along. I used Song, Li, Srimani,
+# process here to make it easy to follow along. I used Song, Li, Srimani,
 # Yu, and Wang's paper, "Measure the Semantic Similarity of GO Terms Using
 # Aggregate Information Content" as a guide
             
@@ -186,10 +151,31 @@ for term in svs:
         sv += sws[ancestor]
     svs[term] = sv
 
+
 # Compute semantic similarity for each pair
 pairs = {}
-for pair in combinations(uids, 2):
-    pairs[str(pair)] = semantic_similarity(pair[0], pair[1], sws, svs)
+logger.info("Semantic similarity compute start")
+for pair in tqdm(combinations(uids, 2)):
+    try:
+        with open("./data/semantic_similarities.csv", "a") as out:
+            out.write("".join([pair[0], ",", pair[1], ",", str(semantic_similarity(pair[0], pair[1], sws, svs)), "\n"]))
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(repr(e))
+        logger.critical(trace)
+logger.info("Semantic similarity compute end")
 
-with open("./data/semantic_similarities.json", "w") as out:
-    json.dump(pairs, out)
+## Compute semantic similarity for each pair
+#pairs = {}
+#combos = []
+#for combo in combinations(uids, 2):
+#    combos.append(combo)
+#logger.info("Semantic similarity compute start")
+#for pair in combos:
+#    pairs[str(pair)] = semantic_similarity(pair[0], pair[1], sws, svs)
+#logger.info("Semantic similarity compute end")
+#
+## Write output
+#with open("./data/semantic_similarities.json", "w") as out:
+#    json.dump(pairs, out)
+
