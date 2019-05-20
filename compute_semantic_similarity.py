@@ -65,9 +65,9 @@ def semantic_similarity(uid1, uid2, sws, svs):
     return 0 if num is np.NaN or denom is 0 else num / denom
 
 # Set up logging
-logger = logging.getLogger("compute_term_aic.py")
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler("errors.log")
+handler = logging.FileHandler("compute_semantic_similarity.log")
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
@@ -155,7 +155,7 @@ for term in svs:
 # Compute semantic similarity for each pair
 pairs = {}
 logger.info("Semantic similarity compute start")
-for pair in tqdm(combinations(uids, 2)):
+for pair in combinations(uids, 2):
     try:
         with open("./data/semantic_similarities.csv", "a") as out:
             out.write("".join([pair[0], ",", pair[1], ",", str(semantic_similarity(pair[0], pair[1], sws, svs)), "\n"]))
