@@ -3,14 +3,6 @@ import json
 
 import numpy as np
 
-# Load in term frequencies
-with open("./data/term_freqs.json", "r") as handle:
-    term_freqs = json.load(handle)
-
-# Load in solution values
-with open("./data/baseline_solution.json", "r") as handle:
-    solution = json.load(handle)
-
 # Load in semantic similarities
 sim_cutoff = .8
 sem_sims = {}
@@ -131,7 +123,7 @@ for thresh in thresholds:
 #                    if tup != pred:
 #                        pass
             for sim in sims:
-                predictions[doc[0]].extend([tup for tup in sim.split(",") if tup != pred])
+                predictions[doc[0]].append([tup for tup in sim.split(",") if tup != pred][0])
 #            sims = [tup for tup in sim for sim in sims if tup != pred]
 #            sims = [tup for tup in sim.split(",") for sim in sims if tup != pred]
             #sims = [tup for tup in sims.split(",") if tup != pred]
