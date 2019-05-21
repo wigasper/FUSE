@@ -52,8 +52,16 @@ feat_selector = BorutaPy(rf, n_estimators='auto', verbose=2, random_state=1)
 
 feat_selector.fit(x, y)
 
-feat_selector.support_[0:12]
+selected_feats = []
+counter = 0
+for feat in feat_selector.support_:
+    if feat == True:
+        selected_feats.append(counter)
+    counter += 1
 
+for feat in selected_feats:
+    print(uids[feat])
+    
 feat_selector.ranking_[0:10]
 
 X_filtered = feat_selector.transform(x)
