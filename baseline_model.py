@@ -65,20 +65,3 @@ pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
 pyplot.plot(recalls, precisions, marker=".")
 pyplot.savefig("pr_curve.png")
 pyplot.show()
-
-
-
-
-
-################################
-
-for doc in term_freqs:
-    for key, val in doc[1].items():
-        if val > .25:
-            print(doc[0])
-
-interesting_docs = ['22933841', '22943249', '23002304']
-test = []
-for doc in term_freqs:
-    if doc[0] in interesting_docs:
-        test.append(doc)
