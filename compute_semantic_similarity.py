@@ -8,8 +8,9 @@ from itertools import combinations
 
 import numpy as np
 from bs4 import BeautifulSoup
-from tqdm import tqdm
 
+# Gets a list of children for a term. Because we we don't actually have a graph
+# to traverse, it is done by searching according to position on the graph
 def get_children(uid, term_trees):
     # Return empty list for terms (like 'D005260' - 'Female') that aren't
     # actually part of any trees
@@ -28,7 +29,8 @@ def get_children(uid, term_trees):
     
     return list(dict.fromkeys(children))
 
-# Refactor without recursion later? Use stack? i.e. breadth first search
+# Recursively computes the frequency according to Song et al by adding
+# the term's count to sum of the frequencies of all its children
 def freq(uid, term_counts, term_freqs, term_trees):
     total = term_counts[uid]
     if term_freqs[uid] != -1:
@@ -40,7 +42,7 @@ def freq(uid, term_counts, term_freqs, term_trees):
             total += freq(child)
         return total
 
-# According to the paper, the ancestor set includes the term itself
+# Get all ancestors of a term
 def get_ancestors(uid, term_trees, term_trees_rev):
     ancestors = [tree for tree in term_trees[uid]]
     # Remove empty strings if they exist
@@ -54,7 +56,8 @@ def get_ancestors(uid, term_trees, term_trees_rev):
     ancestors = [term_trees_rev[ancestor] for ancestor in ancestors]
     ancestors = list(dict.fromkeys(ancestors))
     return ancestors
-    
+
+# Compute semantic similarity for 2 terms
 def semantic_similarity(uid1, uid2, sws, svs):
     uid1_ancs = get_ancestors(uid1, term_trees, term_trees_rev)
     uid2_ancs = get_ancestors(uid2, term_trees, term_trees_rev)
@@ -65,6 +68,9 @@ def semantic_similarity(uid1, uid2, sws, svs):
     return 0 if num is np.NaN or denom is 0 else num / denom
 
 # Set up logging
+# As the implementation stands, logging is not terribly important, but it is 
+# very helpful during development. I keep this around though in case it is 
+# needed in the future.
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.FileHandler("compute_semantic_similarity.log")
@@ -91,27 +97,21 @@ term_trees_rev = {tree:uids[idx] for idx in range(len(uids)) for tree in trees[i
 
 term_counts = {uid:0 for uid in uids}
 
-## Count MeSH terms
-#for doc in tqdm(docs):
-#    with open("./mesh_xmls/{}".format(doc), "r") as handle:
-#        soup = BeautifulSoup(handle.read())
-#        
-#        mesh_terms = []
-#                        
-#        for mesh_heading in soup.find_all("meshheading"):
-#            if mesh_heading.descriptorname is not None:
-#                term_id = mesh_heading.descriptorname['ui']
-#                term_counts[term_id] += 1
-#    
-#term_freqs = {uid:-1 for uid in uids}
-#for term in term_freqs.keys():
-#    term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
-
-term_freqs = {}
-with open("./data/mesh_term_freq_vals.csv", "r") as handle:
-    for line in handle:
-        line = line.strip("\n").split(",")
-        term_freqs[line[0]] = int(line[1])
+# Count MeSH terms
+for doc in docs:
+    with open("./mesh_xmls/{}".format(doc), "r") as handle:
+        soup = BeautifulSoup(handle.read())
+        
+        mesh_terms = []
+                        
+        for mesh_heading in soup.find_all("meshheading"):
+            if mesh_heading.descriptorname is not None:
+                term_id = mesh_heading.descriptorname['ui']
+                term_counts[term_id] += 1
+    
+term_freqs = {uid:-1 for uid in uids}
+for term in term_freqs.keys():
+    term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
 
 root_freq = sum(term_freqs.values())
 
@@ -151,7 +151,6 @@ for term in svs:
         sv += sws[ancestor]
     svs[term] = sv
 
-
 # Compute semantic similarity for each pair
 pairs = {}
 logger.info("Semantic similarity compute start")
@@ -164,18 +163,3 @@ for pair in combinations(uids, 2):
         logger.error(repr(e))
         logger.critical(trace)
 logger.info("Semantic similarity compute end")
-
-## Compute semantic similarity for each pair
-#pairs = {}
-#combos = []
-#for combo in combinations(uids, 2):
-#    combos.append(combo)
-#logger.info("Semantic similarity compute start")
-#for pair in combos:
-#    pairs[str(pair)] = semantic_similarity(pair[0], pair[1], sws, svs)
-#logger.info("Semantic similarity compute end")
-#
-## Write output
-#with open("./data/semantic_similarities.json", "w") as out:
-#    json.dump(pairs, out)
-
