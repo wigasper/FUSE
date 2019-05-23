@@ -258,8 +258,20 @@ for thresh in thresholds:
 from sklearn.metrics import auc
 from matplotlib import pyplot
 
+with open("./data/baseline_sem_sim_corr_results", "w") as out:
+    out.write("".join(["auc: ", str(auc(recalls, precisions))]))
+    out.write("\n")
+    out.write("f1s: ")
+    out.write(",".join([str(f1) for f1 in f1s]))
+    out.write("\n")
+    out.write("precisions: ")
+    out.write(",".join([str(prec) for prec in precisions]))
+    out.write("\n")
+    out.write("recalls: ")
+    out.write(",".join([str(rec) for rec in recalls]))
+
 # AUC
-print("AUC: ", auc(recalls, precisions))
+#print("AUC: ", auc(recalls, precisions))
 pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
 pyplot.plot(recalls, precisions, marker=".")
 pyplot.savefig("pr_curve.png")
