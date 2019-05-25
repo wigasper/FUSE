@@ -8,6 +8,7 @@ from itertools import combinations
 
 import numpy as np
 from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 # Gets a list of children for a term. Because we we don't actually have a graph
 # to traverse, it is done by searching according to position on the graph
@@ -89,7 +90,7 @@ with open("./data/mesh_data.tab", "r") as handle:
         names.append(line[1])
         trees.append(line[4].split(","))
 
-docs = os.listdir("./mesh_xmls")
+docs = os.listdir("./pubmed_bulk")
 
 # Create term_trees dict and reverse for quick and easy lookup later
 term_trees = {uids[idx]:trees[idx] for idx in range(len(uids))}
@@ -98,8 +99,8 @@ term_trees_rev = {tree:uids[idx] for idx in range(len(uids)) for tree in trees[i
 term_counts = {uid:0 for uid in uids}
 
 # Count MeSH terms
-for doc in docs:
-    with open("./mesh_xmls/{}".format(doc), "r") as handle:
+for doc in tqdm(docs):
+    with open("./pubmed_bulk/{}".format(doc), "r") as handle:
         soup = BeautifulSoup(handle.read())
         
         mesh_terms = []
@@ -156,7 +157,7 @@ pairs = {}
 logger.info("Semantic similarity compute start")
 for pair in combinations(uids, 2):
     try:
-        with open("./data/semantic_similarities.csv", "a") as out:
+        with open("./data/semantic_similarities_rev0.csv", "a") as out:
             out.write("".join([pair[0], ",", pair[1], ",", str(semantic_similarity(pair[0], pair[1], sws, svs)), "\n"]))
     except Exception as e:
         trace = traceback.format_exc()
