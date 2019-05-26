@@ -100,16 +100,26 @@ term_counts = {uid:0 for uid in uids}
 
 # Count MeSH terms
 for doc in tqdm(docs):
-    with open("./pubmed_bulk/{}".format(doc), "r") as handle:
-        soup = BeautifulSoup(handle.read())
-        
-        mesh_terms = []
-                        
-        for mesh_heading in soup.find_all("meshheading"):
-            if mesh_heading.descriptorname is not None:
-                term_id = mesh_heading.descriptorname['ui']
-                term_counts[term_id] += 1
-    
+    try:
+        with open("./pubmed_bulk/{}".format(doc), "r") as handle:
+            soup = BeautifulSoup(handle.read())
+            
+            mesh_terms = []
+                            
+            for mesh_heading in soup.find_all("meshheading"):
+                if mesh_heading.descriptorname is not None:
+                    term_id = mesh_heading.descriptorname['ui']
+                    term_counts[term_id] += 1
+        logger.info(f"{doc} processed")
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(repr(e))
+        logger.critical(trace)
+
+##########
+with open("./data/pm_bulk_term_counts.json", "w") as out:
+    json.dump(term_counts, out)
+##########
 term_freqs = {uid:-1 for uid in uids}
 for term in term_freqs.keys():
     term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
