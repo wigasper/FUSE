@@ -9,16 +9,20 @@ from Bio import Entrez
 from tqdm import tqdm
 
 # Set up logging
-logging.basicConfig(filename="errors.log", level=logging.INFO,
-                    format="PubMed pull: %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler("pubmed_api_pull.log")
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 logger = logging.getLogger()
 
-with open("ncbi.key") as handle:
+with open("../ncbi.key") as handle:
     api_key = handle.read()
 
 ids_to_get = []
 
-with open("./data/edge_list.csv", "r") as handle:
+with open("../data/edge_list.csv", "r") as handle:
     for line in handle:
         line = line.strip("\n").split(",")
         ids_to_get.append(line[0])
@@ -29,7 +33,7 @@ ids_to_get = list(dict.fromkeys(ids_to_get))
 
 for pmid in ids_to_get:
     start_time = time.perf_counter()
-    file = Path("./MeSH XMLs/{}.xml".format(pmid))
+    file = Path(f"../mesh_xmls/{pmid}.xml")
 
     if not file.exists():
         Entrez.email = "kgasper@unomaha.edu"
@@ -44,14 +48,14 @@ for pmid in ids_to_get:
         if isinstance(element['PubmedArticleSet'], dict):
             for key in element['PubmedArticleSet'].keys():
                 if key == 'error':
-                    logger.error("PubMed API - ID: {}".format(pmid))
+                    logger.error(f"PubMed API - ID: {pmid}")
                     pm_error = True
             if not pm_error:
-                with open("./MeSH XMLs/{}.xml".format(pmid), "w") as file_out:
+                with open(f"../mesh_xmls/{pmid}.xml", "w") as file_out:
                     file_out.write(xmlString)
         if not isinstance(element['PubmedArticleSet'], dict):
-            logger.error("Not dict - ID: {}".format(pmid))
+            logger.error(f"Not dict - ID: {pmid}")
             
-        # This is a delay in accordance with PubMed API usage guidelines.
+        # This is a delay in accordance with PubMed API usage guidelines
         if time.perf_counter() - start_time < .1:
             time.sleep(.1 - (time.perf_counter() - start_time))

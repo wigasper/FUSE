@@ -9,20 +9,23 @@ from bs4 import BeautifulSoup
 
 accessions = []
 
-with open("./data/2013_MTI_in_OA_train_nohead.csv", "r") as handle:
+with open("../data/2013_MTI_in_OA_train_nohead.csv", "r") as handle:
     for line in handle:
         line = line.split(",")
         accessions.append(line[3])
 
-with open("./data/2013_MTI_in_OA_test_nohead.csv", "r") as handle:
+with open("../data/2013_MTI_in_OA_test_nohead.csv", "r") as handle:
     for line in handle:
         line = line.split(",")
         accessions.append(line[3])
 
 # Set up logging
-logging.basicConfig(filename="errors.log", level=logging.INFO,
-                    format="Ref Extract: %(levelname)s - %(message)s")
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler("reference_extraction.log")
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 # List for the references
 mti_refs = []
@@ -30,7 +33,7 @@ mti_refs = []
 # Extract references from the XML files
 for ID in tqdm(accessions):
     try:
-        with open("./pmc_xmls/{}.xml".format(ID), "r") as handle:
+        with open(f"../pmc_xmls/{ID}.xml", "r") as handle:
             soup = BeautifulSoup(handle.read())
             
             sample = [ID]
@@ -38,18 +41,18 @@ for ID in tqdm(accessions):
             # add IDs to the error log if they don't have the 'back' tag and to 
             # the samples list if they do
             if soup.back is None:
-                logger.error("No refs: {}".format(str(ID)))
+                logger.error(f"No refs: {ID}")
             elif soup.back is not None:
                 for pubid in soup.back.find_all('pub-id'):
                     sample.append(pubid.string)
                 mti_refs.append(sample)
     except FileNotFoundError:
-        logger.error("FNFE: {}".format(str(ID)))
+        logger.error(f"FNFE: {ID}")
 
 # Create dicts for ID conversions
 dois = {}
 pmcids = {}
-with open("./data/PMC-ids-nohead.csv", "r") as handle:
+with open("../data/PMC-ids-nohead.csv", "r") as handle:
     for line in handle:
         line = line.split(",")
         if len(line) > 9:
@@ -70,7 +73,7 @@ def fetch_pmid(identifier, dois, pmcids, logger):
         if pmid:
             return pmid
         else:
-            logger.error("PMCID conversion error: {}".format(identifier))
+            logger.error(f"PMCID conversion error: {identifier}")
             return identifier
     
     # Return original identifier if not a DOI or PMCID
@@ -94,6 +97,6 @@ edge_list = list(set(edge_list))
 edge_list.sort()
 
 # Write output
-with open("./data/edge_list.csv", "w") as out:
+with open("../data/edge_list.csv", "w") as out:
     for edge in edge_list:
         out.write("".join([edge[0], ",", edge[1], "\n"]))

@@ -7,15 +7,18 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 # Set up logging
-logging.basicConfig(filename="errors.log", level=logging.INFO,
-                    format="MeSH Extract: %(levelname)s - %(message)s")
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler("mesh_term_extraction.log")
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 doc_refs_dict = {}
 
 ids_to_get = []
 
-with open("./data/edge_list.csv", "r") as handle:
+with open("../data/edge_list.csv", "r") as handle:
     for line in handle:
         line = line.strip("\n").split(",")
         
@@ -38,7 +41,7 @@ doc_term_dict = {}
 # Extract MeSH terms for each PMID
 for pmid in tqdm(ids_to_get):
     try:
-        with open("./mesh_xmls/{}.xml".format(pmid), "r") as handle:
+        with open(f"../mesh_xmls/{pmid}.xml", "r") as handle:
             soup = BeautifulSoup(handle.read())
             
             mesh_terms = []
@@ -51,7 +54,7 @@ for pmid in tqdm(ids_to_get):
             doc_term_dict[pmid] = mesh_terms
             
     except FileNotFoundError:
-        logger.error("FNFE: {}".format(str(pmid)))
+        logger.error(f"FNFE: {pmid}")
 
 # Get term counts for references of each parent node
 term_counts = []
@@ -68,7 +71,7 @@ for doc in doc_refs_dict.keys():
                     
         term_counts.append([doc, doc_counts])
     except KeyError:
-        logger.error("KeyError at counts - PMID: {}".format(str(ref)))
+        logger.error(f"KeyError at counts - PMID: {ref}")
 
 # Change counts to relative frequency
 for doc in term_counts:
@@ -81,7 +84,7 @@ for doc in term_counts:
 # Why JSON? This is the most convenient format for the baseline model
 # A sparse matrix with 10k rows and 27k columns would take up significantly
 # more space and be more difficult to work with
-with open("./data/term_freqs.json", "w") as out:
+with open("../data/term_freqs.json", "w") as out:
     json.dump(term_counts, out)
         
 # Get response MeSH terms to evaluate against
@@ -93,7 +96,7 @@ doc_term_dict = {}
 # Extract MeSH terms for each PMID
 for pmid in tqdm(response_ids):
     try:
-        with open("./mesh_xmls/{}.xml".format(pmid), "r") as handle:
+        with open(f"../mesh_xmls/{pmid}.xml", "r") as handle:
             soup = BeautifulSoup(handle.read())
             
             mesh_terms = []
@@ -106,7 +109,7 @@ for pmid in tqdm(response_ids):
             doc_term_dict[pmid] = mesh_terms
             
     except FileNotFoundError:
-        logger.error("FNFE: {}".format(str(pmid)))
+        logger.error(f"FNFE: {pmid}")
 
-with open("./data/baseline_solution.json", "w") as out:
+with open("../data/baseline_solution.json", "w") as out:
     json.dump(doc_term_dict, out)
