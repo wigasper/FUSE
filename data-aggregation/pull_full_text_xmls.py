@@ -31,10 +31,10 @@ with open("../data/PMIDs_test", "r") as fp:
     mti_test = pd.DataFrame({'PMID':mti_test})
 
 mti_subset_train = oa_list[(oa_list.PMID.isin(mti_train.PMID))]
-mti_subset_train.to_csv("2013_MTI_in_OA_train.csv")
+mti_subset_train.to_csv("../data/2013_MTI_in_OA_train.csv")
 
 mti_subset_test = oa_list[(oa_list.PMID.isin(mti_test.PMID))]
-mti_subset_test.to_csv("2013_MTI_in_OA_test.csv")
+mti_subset_test.to_csv("../data/2013_MTI_in_OA_test.csv")
 
 ids_to_get = mti_subset_train["Accession ID"].tolist() + mti_subset_test["Accession ID"].tolist()
 
