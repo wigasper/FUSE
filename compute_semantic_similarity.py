@@ -40,8 +40,8 @@ def freq(uid, term_counts, term_freqs, term_trees):
     if len(get_children(uid, term_trees)) == 0:
         return total
     else:
-        for child in get_children(uid):
-            total += freq(child)
+        for child in get_children(uid, term_trees):
+            total += freq(child, term_counts, term_freqs, term_trees)
         return total
 
 # Get all ancestors of a term
