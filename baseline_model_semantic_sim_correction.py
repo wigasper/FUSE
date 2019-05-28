@@ -309,7 +309,7 @@ with open("./data/semantic_similarities_rev0.csv", "r") as handle:
 
 # The baseline model. This model will predict a term if its frequency
 # is greater than the threshold
-thresholds = [x * .005 for x in range(0,200)]
+thresholds = [x * .005 for x in range(0,40)]
 
 predictions = {}
 precisions = []
