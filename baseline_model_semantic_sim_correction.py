@@ -321,6 +321,7 @@ for thresh in thresholds:
     # Predict
     for doc in tqdm(term_freqs):
         term_pool = [t for term in doc[1].keys() if term in sem_sims.keys() for t in sem_sims[term]]
+        term_pool.extend(doc[1].keys())
         term_pool = list(dict.fromkeys(term_pool))
         pred = []
         for term in term_pool:
