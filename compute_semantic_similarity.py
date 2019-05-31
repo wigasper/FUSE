@@ -97,32 +97,26 @@ docs = os.listdir("./pubmed_bulk")
 term_trees = {uids[idx]:trees[idx] for idx in range(len(uids))}
 term_trees_rev = {tree:uids[idx] for idx in range(len(uids)) for tree in trees[idx]}
 
-#term_counts = {uid:0 for uid in uids}
-#
-## Count MeSH terms
-#for doc in tqdm(docs):
-#    try:
-#        with open("./pubmed_bulk/{}".format(doc), "r") as handle:
-#            soup = BeautifulSoup(handle.read())
-#            
-#            mesh_terms = []
-#                            
-#            for mesh_heading in soup.find_all("meshheading"):
-#                if mesh_heading.descriptorname is not None:
-#                    term_id = mesh_heading.descriptorname['ui']
-#                    term_counts[term_id] += 1
-#        logger.info(f"{doc} processed")
-#    except Exception as e:
-#        trace = traceback.format_exc()
-#        logger.error(repr(e))
-#        logger.critical(trace)
-#
-##########################
-#with open("./data/pm_bulk_term_counts.json", "w") as out:
-#    json.dump(term_counts, out)
-#########################
-with open ("./data/pm_bulk_term_counts.json", "r") as handle:
-    term_counts = json.load(handle)
+term_counts = {uid:0 for uid in uids}
+
+# Count MeSH terms
+for doc in tqdm(docs):
+    try:
+        with open("./pubmed_bulk/{}".format(doc), "r") as handle:
+            soup = BeautifulSoup(handle.read())
+            
+            mesh_terms = []
+                            
+            for mesh_heading in soup.find_all("meshheading"):
+                if mesh_heading.descriptorname is not None:
+                    term_id = mesh_heading.descriptorname['ui']
+                    term_counts[term_id] += 1
+        logger.info(f"{doc} processed")
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(repr(e))
+        logger.critical(trace)
+
 
 term_freqs = {uid:-1 for uid in uids}
 for term in term_freqs.keys():
