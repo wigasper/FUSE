@@ -29,7 +29,7 @@ for thresh in thresholds:
     false_pos = 0
     false_neg = 0
     
-    for pmid in predictions.keys():
+    for pmid in predictions:
         true_pos += len([pred for pred in predictions[pmid] if pred in solution[pmid]])
         false_pos += len([pred for pred in predictions[pmid] if pred not in solution[pmid]])
         false_neg += len([sol for sol in solution[pmid] if sol not in predictions[pmid]])
