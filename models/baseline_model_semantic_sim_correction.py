@@ -284,17 +284,17 @@ from tqdm import tqdm
 import numpy as np 
 
 # Load in term frequencies
-with open("./data/term_freqs.json", "r") as handle:
+with open("../data/term_freqs.json", "r") as handle:
     term_freqs = json.load(handle)
 
 # Load in solution values
-with open("./data/baseline_solution.json", "r") as handle:
+with open("../data/baseline_solution.json", "r") as handle:
     solution = json.load(handle)
 
 sim_cutoff = .8
 sem_sims = {}
 
-with open("./data/semantic_similarities_rev0.csv", "r") as handle:
+with open("../data/semantic_similarities_rev0.csv", "r") as handle:
     for line in handle:
         line = line.strip("\n").split(",")
         if float(line[2]) > sim_cutoff and not np.isnan(float(line[2])):
@@ -353,14 +353,19 @@ for thresh in thresholds:
         precision = true_pos / (true_pos + false_pos)
         recall = true_pos / (true_pos + false_neg)
         f1 = (2 * precision * recall) / (precision + recall)
-    
+
+    print("thresh: " + str(thresh))
+    print("precision: " + str(precision))
+    print("recall: " + str(recall))
+    print("f1: " + str(f1))
+
     precisions.append(precision)
     recalls.append(recall)
     f1s.append(f1)
         
 from sklearn.metrics import auc
 from matplotlib import pyplot
-with open("./data/baseline_sem_sim_corr_results_1", "w") as out:
+with open("../data/baseline_sem_sim_corr_results_2", "w") as out:
     out.write("".join(["auc: ", str(auc(recalls, precisions))]))
     out.write("\n")
     out.write("f1s: ")
@@ -376,5 +381,5 @@ with open("./data/baseline_sem_sim_corr_results_1", "w") as out:
 #print("AUC: ", auc(recalls, precisions))
 pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
 pyplot.plot(recalls, precisions, marker=".")
-pyplot.savefig("pr_curve.png")
+pyplot.savefig("../pr_curve.png")
 pyplot.show()

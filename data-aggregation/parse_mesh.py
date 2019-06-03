@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 from bs4 import BeautifulSoup
-
+from tqdm import tqdm
 records = []
 
-with open("./data/desc2019", "r") as handle:
+with open("../data/desc2019", "r") as handle:
     record = ""
     for line in handle:
         if line.startswith("<DescriptorRecord"):
@@ -27,7 +27,7 @@ distinct_tree_posits = []
 
 # Extract data. tree_num_lists is currently commented out but this might be
 # useful to keep in the future
-for rec in records:
+for rec in tqdm(records):
     soup = BeautifulSoup(rec)
     
     tree_nums = []
@@ -43,7 +43,7 @@ for rec in records:
     distinct_tree_posits.append(len(tree_nums))
     tree_num_lists.append(tree_nums)
 
-with open("./data/mesh_data.tab", "w") as out:
+with open("../data/mesh_data.tab", "w") as out:
     for index in range(len(records)):
         out.write("".join([desc_uis[index], "\t", desc_names[index], "\t"]))
         out.write("".join([str(min_depths[index]), "\t"]))
