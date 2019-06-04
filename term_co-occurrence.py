@@ -32,9 +32,9 @@ for doc in tqdm(docs):
     try:
         with open(f"./pubmed_bulk/{doc}", "r") as handle:
             logger.info(f"Processing start - {doc}")
-            soup = BeautifulSoup(handle.read())
+            soup = BeautifulSoup(handle.read(), features="lxml")
             logger.info(f"{doc} loaded - moving to term extract")
-            for article in tqdm(soup.find_all("pubmedarticle")):
+            for article in soup.find_all("pubmedarticle"):
                 term_ids = []
                 for mesh_heading in article.find_all("meshheading"):
                     if mesh_heading.descriptorname is not None:
