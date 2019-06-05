@@ -70,10 +70,15 @@ for doc in tqdm(docs):
 
 logger.info("Stopping doc/term counting")
 
+###########
 with open("./data/pm_bulk_doc_term_counts.json", "w") as out:
     json.dump(doc_terms, out)
 
+
 ########### test area
+########### need to convert this to csv and read to lists
+with open("./data/pm_bulk_doc_term_counts.json", "r") as handle:
+    doc_terms = json.load(handle)
 # build matrix
 uids = []
 
@@ -89,9 +94,10 @@ for doc in doc_terms:
     for uid in uids:
         if uid in doc_terms[doc]:
             row.append(1)
-        else
+        else:
             row.append(0)
     td_matrix.append(row)
 
+td_matrix = np.array(td_matrix)
 co_matrix = np.dot(td_matrix.transpose(), td_matrix)
 
