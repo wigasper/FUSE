@@ -93,4 +93,5 @@ for doc in doc_terms:
             row.append(0)
     td_matrix.append(row)
 
+co_matrix = np.dot(td_matrix.transpose(), td_matrix)
 
