@@ -39,8 +39,7 @@ for doc in tqdm(docs):
                 for mesh_heading in article.find_all("meshheading"):
                     if mesh_heading.descriptorname is not None:
                         term_ids.append(mesh_heading.descriptorname['ui'])
-                if article.pubmeddata.articleidlist is not None:
-                    doc_terms[str(article.medlinecitation.pmid.string.extract())] = term_ids
+                doc_terms[str(article.medlinecitation.pmid.string)] = term_ids
             logger.info(f"Processing complete - {doc}")
 #        soup.decompose()
 #        gc.collect()
