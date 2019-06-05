@@ -6,6 +6,7 @@ import json
 import logging
 import traceback
 
+import numpy as np
 from tqdm import tqdm
 
 # Set up logging
@@ -71,3 +72,25 @@ logger.info("Stopping doc/term counting")
 
 with open("./data/pm_bulk_doc_term_counts.json", "w") as out:
     json.dump(doc_terms, out)
+
+########### test area
+# build matrix
+uids = []
+
+with open("./data/mesh_data.tab", "r") as handle:
+    for line in handle:
+        line = line.strip("\n").split("\t")
+        uids.append(line[0])
+
+td_matrix = []
+
+for doc in doc_terms:
+    row = []
+    for uid in uids:
+        if uid in doc_terms[doc]:
+            row.append(1)
+        else
+            row.append(0)
+    td_matrix.append(row)
+
+
