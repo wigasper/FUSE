@@ -79,6 +79,36 @@ with open("./data/pm_bulk_doc_term_counts.json", "w") as out:
 ########### need to convert this to csv and read to lists
 with open("./data/pm_bulk_doc_term_counts.json", "r") as handle:
     doc_terms = json.load(handle)
+##########
+with open("./data/pm_bulk_doc_term_counts.csv", "w") as out:
+    for doc in doc_terms:
+        out.write("".join([doc, ","]))
+        out.write(",".join(doc_terms[doc]))
+        out.write("\n")
+
+# build matrix
+uids = []
+
+with open("./data/mesh_data.tab", "r") as handle:
+    for line in handle:
+        line = line.strip("\n").split("\t")
+        uids.append(line[0])
+
+td_matrix = []
+
+with open("./data/pm_bulk_doc_term_counts.csv", "r") as handle:
+    for line in handle:
+        line = line.strip("\n").split(",")
+        terms = line[1:]
+        row = []
+        for uid in uids:
+            if uid in terms:
+                row.append(1)
+            else:
+                row.append(0)
+        td_matrix.append(row)
+
+###############
 # build matrix
 uids = []
 
