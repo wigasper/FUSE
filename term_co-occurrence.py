@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import re
+import time
 import json
 import logging
 import traceback
@@ -34,7 +35,8 @@ for doc in tqdm(docs):
     try:
         with open(f"./pubmed_bulk/{doc}", "r") as handle:
             start_doc_count = len(doc_terms.keys())
-            logger.info(f"{doc} parsing started")
+            start_time = time.perf_counter()
+
             line = handle.readline()
             while line:
                 if pm_article_start.search(line):
@@ -53,11 +55,19 @@ for doc in tqdm(docs):
                         line = handle.readline()
                 line = handle.readline()
             doc_terms[doc_pmid] = term_ids
-            logger.info(f"{doc} parsing completed - terms extracted for {len(doc_terms.keys()) - start_doc_count} documents")
+
+            # Get count for log
+            docs_counted = len(doc_terms.keys()) - start_doc_count
+            # Get elapsed time and truncate for log
+            elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
+            logger.info(f"{doc} parsing completed - terms extracted for {docs_counted} documents in {elapsed_time} seconds")
+            
     except Exception as e:
         trace = traceback.format_exc()
         logger.error(repr(e))
         logger.critical(trace)
-        
+
+logger.info("Stopping doc/term counting")
+
 with open("./data/pm_bulk_doc_term_counts.json", "w") as out:
     json.dump(doc_terms, out)
