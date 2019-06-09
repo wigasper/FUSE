@@ -7,6 +7,8 @@ import json
 import time
 import logging
 import traceback
+from multiprocessing import Process, Queue
+from copy import deepcopy
 from itertools import combinations
 
 import numpy as np
@@ -110,6 +112,38 @@ def count_mesh_terms(doc_list, uids, logger, load_flag=True, save_flag=False):
             json.dump(term_counts, out)
     return term_counts
 
+# A function for multiprocessing
+def output_writer(write_queue, out_path):
+    with open(out_path, "w") as out:
+        while True:
+            result = write_queue.get()
+            if result is None:
+                break
+            out.write("".join([result, "\n"]))
+
+def mp_worker(work_queue, write_queue, id_num, sws, svs, term_trees, term_trees_rev):
+    # Set up logging - I do actually want a logger for each worker to catch any exceptions
+    # this is easier than sharing the original logger - but this may be implemented
+    # in the future
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    handler = logging.FileHandler(f"./logs/compute_semantic_similarity_worker{id_num}.log")
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+    try:
+        while True:
+            pair = work_queue.get()
+            if pair is None:
+                break
+            sem_sim = semantic_similarity(pair[0], pair[1], sws, svs, term_trees, term_trees_rev)
+            write_queue.put(("".join([pair[0], ",", pair[1], ",", str(sem_sim), "\n"])))
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(repr(e))
+        logger.critical(trace)
+
 def main():
     # Set up logging
     logger = logging.getLogger(__name__)
@@ -148,8 +182,13 @@ def main():
     # Song et al
     start_time = time.perf_counter()
     term_freqs = {uid:-1 for uid in uids}
-    for term in term_freqs.keys():
-        term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
+#    print("Computing term frequencies")
+#    for term in tqdm(term_freqs):
+#        term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
+    with open("./data/mesh_term_freq_vals.csv", "r") as handle:
+ 	 for line in handle:
+	      line = line.strip("\n").split(",")
+	      term_freqs[line[0]] = int(line[1])
     # Get elapsed time and truncate for log
     elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
     logger.info(f"Term freqs calculated in {elapsed_time} seconds")
@@ -189,18 +228,39 @@ def main():
             sv += sws[ancestor]
         svs[term] = sv
 
-    # Compute semantic similarity for each pair
-    pairs = {}
+    # Compute semantic similarity for each pair utilizing multiprocessing
     start_time = time.perf_counter()
+
+    num_workers = 4
+    write_queue = Queue()
+    work_queue = Queue()
+
+    out_path = "./data/semantic_similarities_rev1.csv"
+
+    writer = Process(target=output_writer, args=(write_queue, out_path))
+    writer.daemon = True
+    writer.start()
+
+    processes = [Process(target=mp_worker, args=(work_queue, write_queue, num, deepcopy(sws), 
+                deepcopy(svs), deepcopy(term_trees), deepcopy(term_trees_rev))) for num in range(num_workers)]
+    
+    for process in processes:
+        process.start()
+    
     for pair in combinations(uids, 2):
-        try:
-            with open("./data/semantic_similarities_rev1.csv", "a") as out:
-                sem_sim = semantic_similarity(pair[0], pair[1], sws, svs, term_trees, term_trees_rev)
-                out.write("".join([pair[0], ",", pair[1], ",", str(sem_sim), "\n"]))
-        except Exception as e:
-            trace = traceback.format_exc()
-            logger.error(repr(e))
-            logger.critical(trace)
+        work_queue.put(pair)
+    
+    while True:
+        if work_queue.empty():
+            for _ in range(num_workers):
+                work_queue.put(None)
+            break
+
+    for process in processes:
+        process.join()
+    
+    write_queue.put(None)
+    writer.join()
 
     # Get elapsed time and truncate for log
     elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
