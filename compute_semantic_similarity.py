@@ -186,9 +186,9 @@ def main():
 #    for term in tqdm(term_freqs):
 #        term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
     with open("./data/mesh_term_freq_vals.csv", "r") as handle:
- 	 for line in handle:
-	      line = line.strip("\n").split(",")
-	      term_freqs[line[0]] = int(line[1])
+        for line in handle:
+	        line = line.strip("\n").split(",")
+	        term_freqs[line[0]] = int(line[1])
     # Get elapsed time and truncate for log
     elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
     logger.info(f"Term freqs calculated in {elapsed_time} seconds")
