@@ -205,8 +205,11 @@ def main():
     for term in ics:
         try:
             ics[term] = -1 * math.log(term_probs[term])
-        except ZeroDivisionError:
-            logger.error(f"ZeroDivisionError for {term}")
+        except Exception as e:
+            trace = traceback.format_exc()
+            logger.error(repr(e))
+            logger.error(f"Term: {term}")
+            logger.critical(trace)
 
     # Compute knowledge for each term
     knowledge = {uid:np.NaN for uid in uids}
