@@ -61,7 +61,7 @@ def get_ancestors(uid, term_trees, term_trees_rev):
     return ancestors
 
 # Compute semantic similarity for 2 terms
-def semantic_similarity(uid1, uid2, sws, svs):
+def semantic_similarity(uid1, uid2, sws, svs, term_trees, term_trees_rev):
     uid1_ancs = get_ancestors(uid1, term_trees, term_trees_rev)
     uid2_ancs = get_ancestors(uid2, term_trees, term_trees_rev)
     intersection = [anc for anc in uid1_ancs if anc in uid2_ancs]
@@ -70,125 +70,141 @@ def semantic_similarity(uid1, uid2, sws, svs):
     
     return 0 if num is np.NaN or denom is 0 else num / denom
 
-# Set up logging
-# As the implementation stands, logging is not terribly important, but it is 
-# very helpful during development. I keep this around though in case it is 
-# needed in the future.
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler("./logs/compute_semantic_similarity.log")
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+# Get MeSH term counts
+def count_mesh_terms(doc_list, uids, logger, load_flag=True, save_flag=False):
+    if load_flag:
+        with open("./data/pm_bulk_term_counts.json", "r") as handle:
+            term_counts = json.load(handle)
+    else:
+        # Compile regexes for counting MeSH terms
+        mesh_list_start = re.compile(r"\s*<MeshHeadingList>")
+        mesh_list_stop = re.compile(r"\s*</MeshHeadingList>")
+        mesh_term_id = re.compile(r'\s*<DescriptorName UI="(D\d+)".*>')
 
-uids = []
-names = []
-trees = []
+        term_counts = {uid:0 for uid in uids}
+        # Count MeSH terms
+        for doc in tqdm(doc_list):
+            try:
+                with open("./pubmed_bulk/{}".format(doc), "r") as handle:
+                    start_time = time.perf_counter()
 
-with open("./data/mesh_data.tab", "r") as handle:
-    for line in handle:
-        line = line.strip("\n").split("\t")
-        uids.append(line[0])
-        names.append(line[1])
-        trees.append(line[4].split(","))
-
-docs = os.listdir("./pubmed_bulk")
-
-# Create term_trees dict and reverse for quick and easy lookup later
-term_trees = {uids[idx]:trees[idx] for idx in range(len(uids))}
-term_trees_rev = {tree:uids[idx] for idx in range(len(uids)) for tree in trees[idx]}
-
-term_counts = {uid:0 for uid in uids}
-
-# Compile regexes for counting MeSH terms
-mesh_list_start = re.compile(r"\s*<MeshHeadingList>")
-mesh_list_stop = re.compile(r"\s*</MeshHeadingList>")
-mesh_term_id = re.compile(r'\s*<DescriptorName UI="(D\d+)".*>')
-
-# Count MeSH terms
-for doc in tqdm(docs):
-    try:
-        with open("./pubmed_bulk/{}".format(doc), "r") as handle:
-            start_time = time.perf_counter()
-
-            line = handle.readline()
-            while line:
-                if mesh_list_start.search(line):
-                    while not mesh_list_stop.search(line):
-                        if mesh_term_id.search(line):
-                            term_id = mesh_term_id.search(line).group(1)
-                            term_counts[term_id] += 1
+                    line = handle.readline()
+                    while line:
+                        if mesh_list_start.search(line):
+                            while not mesh_list_stop.search(line):
+                                if mesh_term_id.search(line):
+                                    term_id = mesh_term_id.search(line).group(1)
+                                    term_counts[term_id] += 1
+                                line = handle.readline()
                         line = handle.readline()
-                line = handle.readline()
 
-            # Get elapsed time and truncate for log
-            elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
-            logger.info(f"{doc} MeSH term counts completed in {elapsed_time} seconds")
-    except Exception as e:
-        trace = traceback.format_exc()
-        logger.error(repr(e))
-        logger.critical(trace)
+                    # Get elapsed time and truncate for log
+                    elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
+                    logger.info(f"{doc} MeSH term counts completed in {elapsed_time} seconds")
+            except Exception as e:
+                trace = traceback.format_exc()
+                logger.error(repr(e))
+                logger.critical(trace)
+    if save_flag:
+        with open("./data/pm_bulk_term_counts.json", "w") as out:
+            json.dump(term_counts, out)
+    return term_counts
 
-# Computing aggregate information content is done in a step-by-step
-# process here to make it easy to follow along. I used Song, Li, Srimani,
-# Yu, and Wang's paper, "Measure the Semantic Similarity of GO Terms Using
-# Aggregate Information Content" as a guide
+def main():
+    # Set up logging
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    handler = logging.FileHandler("./logs/compute_semantic_similarity.log")
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
-# Get term frequencies (counts) recursively as described by
-# Song et al
-start_time = time.perf_counter()
-term_freqs = {uid:-1 for uid in uids}
-for term in term_freqs.keys():
-    term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
-# Get elapsed time and truncate for log
-elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
-logger.info(f"Term freqs calculated in {elapsed_time} seconds")
+    uids = []
+    names = []
+    trees = []
 
-root_freq = sum(term_freqs.values())
+    with open("./data/mesh_data.tab", "r") as handle:
+        for line in handle:
+            line = line.strip("\n").split("\t")
+            uids.append(line[0])
+            names.append(line[1])
+            trees.append(line[4].split(","))
+
+    docs = os.listdir("./pubmed_bulk")
+
+    # Create term_trees dict and reverse for quick and easy lookup later
+    term_trees = {uids[idx]:trees[idx] for idx in range(len(uids))}
+    term_trees_rev = {tree:uids[idx] for idx in range(len(uids)) for tree in trees[idx]}
+
+    # Get term counts. If recounting terms change the flags
+    term_counts = count_mesh_terms(docs, uids, logger, load_flag=True, save_flag=False)
+
+    # Computing aggregate information content is done in a step-by-step
+    # process here to make it easy to follow along. I used Song, Li, Srimani,
+    # Yu, and Wang's paper, "Measure the Semantic Similarity of GO Terms Using
+    # Aggregate Information Content" as a guide
+
+    # Get term frequencies (counts) recursively as described by
+    # Song et al
+    start_time = time.perf_counter()
+    term_freqs = {uid:-1 for uid in uids}
+    for term in term_freqs.keys():
+        term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
+    # Get elapsed time and truncate for log
+    elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
+    logger.info(f"Term freqs calculated in {elapsed_time} seconds")
+
+    root_freq = sum(term_freqs.values())
+                
+    # Get term probs
+    term_probs = {uid:np.NaN for uid in uids}
+    for term in term_probs:
+        term_probs[term] = term_freqs[term] / root_freq
+
+    # Compute IC values
+    ics = {uid:np.NaN for uid in uids}
+    for term in ics:
+        try:
+            ics[term] = -1 * math.log(term_probs[term])
+        except ZeroDivisionError:
+            logger.error(f"ZeroDivisionError for {term}")
+
+    # Compute knowledge for each term
+    knowledge = {uid:np.NaN for uid in uids}
+    for term in knowledge:
+        knowledge[term] = 1 / ics[term]
             
-# Get term probs
-term_probs = {uid:-1 for uid in uids}
-for term in term_probs:
-    term_probs[term] = term_freqs[term] / root_freq
-
-# Compute IC values
-ics = {uid:np.NaN for uid in uids}
-for term in ics:
-    if term_probs[term] != 0:
-        ics[term] = -1 * math.log(term_probs[term])
-
-# Compute knowledge for each term
-knowledge = {uid:np.NaN for uid in uids}
-for term in knowledge:
-    knowledge[term] = 1 / ics[term]
+    # Compute semantic weight for each term
+    sws = {uid:np.NaN for uid in uids}
+    for term in sws:
+        sws[term] = 1 / (1 + math.exp(-1 * knowledge[term]))
         
-# Compute semantic weight for each term
-sws = {uid:np.NaN for uid in uids}
-for term in sws:
-    sws[term] = 1 / (1 + math.exp(-1 * knowledge[term]))
-    
-# Compute semantic value for each term by adding the semantic weights
-# of all its ancestors
-svs = {uid:np.NaN for uid in uids}
-for term in svs:
-    sv = 0
-    ancestors = get_ancestors(term, term_trees, term_trees_rev)
-    for ancestor in ancestors:
-        sv += sws[ancestor]
-    svs[term] = sv
+    # Compute semantic value for each term by adding the semantic weights
+    # of all its ancestors
+    svs = {uid:np.NaN for uid in uids}
+    for term in svs:
+        sv = 0
+        ancestors = get_ancestors(term, term_trees, term_trees_rev)
+        for ancestor in ancestors:
+            sv += sws[ancestor]
+        svs[term] = sv
 
-# Compute semantic similarity for each pair
-pairs = {}
-start_time = time.perf_counter()
-for pair in combinations(uids, 2):
-    try:
-        with open("./data/semantic_similarities_rev1.csv", "a") as out:
-            out.write("".join([pair[0], ",", pair[1], ",", str(semantic_similarity(pair[0], pair[1], sws, svs)), "\n"]))
-    except Exception as e:
-        trace = traceback.format_exc()
-        logger.error(repr(e))
-        logger.critical(trace)
+    # Compute semantic similarity for each pair
+    pairs = {}
+    start_time = time.perf_counter()
+    for pair in combinations(uids, 2):
+        try:
+            with open("./data/semantic_similarities_rev1.csv", "a") as out:
+                sem_sim = semantic_similarity(pair[0], pair[1], sws, svs, term_trees, term_trees_rev)
+                out.write("".join([pair[0], ",", pair[1], ",", str(sem_sim), "\n"]))
+        except Exception as e:
+            trace = traceback.format_exc()
+            logger.error(repr(e))
+            logger.critical(trace)
 
-# Get elapsed time and truncate for log
-elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
-logger.info(f"Semantic similarities calculated in {elapsed_time} seconds")
+    # Get elapsed time and truncate for log
+    elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
+    logger.info(f"Semantic similarities calculated in {elapsed_time} seconds")
+
+if __name__ == "__main__":
+    main()
