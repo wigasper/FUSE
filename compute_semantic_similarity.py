@@ -149,6 +149,8 @@ def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=Fals
             for term in term_freqs:
                 out.write(",".join([term, str(term_freqs[term])]))
                 out.write("\n")
+    
+    return term_freqs
 
 # A function for multiprocessing
 def output_writer(write_queue, out_path):
