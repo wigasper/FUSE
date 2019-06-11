@@ -123,7 +123,7 @@ def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=Fals
     else:
         # Sort terms so that we hit leaf nodes first and work up from there
         # - this takes a little longer upfront but reduces computation
-        # time greatly but limiting the amount of recursion
+        # time greatly by limiting the number of recursive calls
         
         # Get the max depth
         max_depth = 0
@@ -143,6 +143,7 @@ def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=Fals
         print("Computing term frequencies")
         for term in tqdm(sorted_terms):
             term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
+
     if save_flag:
         with open("./data/mesh_term_freq_vals.csv", "w") as out:
             for term in term_freqs:
