@@ -115,7 +115,7 @@ def count_mesh_terms(doc_list, uids, logger, load_flag=True, save_flag=False):
 
 # Get term frequencies by counting (according to Song et al.'s recursive definition)
 # or by loading
-def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=False):
+def get_term_freqs(term_counts, term_trees, uids, logger, load_flag=True, save_flag=False):
     term_freqs = {uid:-1 for uid in uids}
     
     if load_flag:
@@ -124,6 +124,10 @@ def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=Fals
     	        line = line.strip("\n").split(",")
     	        term_freqs[line[0]] = int(line[1])
     else:
+        # Get term frequencies (counts) recursively as described by
+        # Song et al
+        start_time = time.perf_counter()
+
         # Sort terms so that we hit leaf nodes first and work up from there
         # - this takes a little longer upfront but reduces computation
         # time greatly by limiting the number of recursive calls
@@ -146,6 +150,10 @@ def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=Fals
         print("Computing term frequencies...")
         for term in tqdm(sorted_terms):
             term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
+        
+        # Get elapsed time and truncate for log
+        elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
+        logger.info(f"Term freqs calculated in {elapsed_time} seconds")
 
     if save_flag:
         with open("./data/mesh_term_freq_vals.csv", "w") as out:
@@ -162,7 +170,7 @@ def output_writer(write_queue, out_path):
             result = write_queue.get()
             if result is None:
                 break
-            out.write("".join([result, "\n"]))
+            out.write(result)
 
 # A function for multiprocessing, the worker grabs a pair of terms from the queue
 # and then computes the semantic similarity for the pair
@@ -222,17 +230,9 @@ def main():
     # process here to make it easy to follow along. I used Song, Li, Srimani,
     # Yu, and Wang's paper, "Measure the Semantic Similarity of GO Terms Using
     # Aggregate Information Content" as a guide
-
-    # Get term frequencies (counts) recursively as described by
-    # Song et al
-    start_time = time.perf_counter()
     
     # Get term counts. If recounting terms change the flags
-    term_freqs = get_term_freqs(term_counts, term_trees, uids, load_flag=False, save_flag=True)
-
-    # Get elapsed time and truncate for log
-    elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
-    logger.info(f"Term freqs calculated in {elapsed_time} seconds")
+    term_freqs = get_term_freqs(term_counts, term_trees, uids, logger, load_flag=True, save_flag=False)
 
     root_freq = sum(term_freqs.values())
                 
