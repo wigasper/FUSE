@@ -112,6 +112,43 @@ def count_mesh_terms(doc_list, uids, logger, load_flag=True, save_flag=False):
             json.dump(term_counts, out)
     return term_counts
 
+def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=False):
+    term_freqs = {uid:-1 for uid in uids}
+    
+    if load_flag:
+        with open("./data/mesh_term_freq_vals.csv", "r") as handle:
+            for line in handle:
+    	        line = line.strip("\n").split(",")
+    	        term_freqs[line[0]] = int(line[1])
+    else:
+        # Sort terms so that we hit leaf nodes first and work up from there
+        # - this takes a little longer upfront but reduces computation
+        # time greatly but limiting the amount of recursion
+        
+        # Get the max depth
+        max_depth = 0
+        for term in term_trees:
+            for tree in term_trees[term]:
+                if len(tree.split(".")) > max_depth:
+                    max_depth = len(tree.split("."))
+        
+        sorted_terms = []
+        for depth in range(max_depth, 0, -1):
+            for term in term_trees:
+                for tree in term_trees[term]:
+                    if len(tree.split(".")) == depth and term not in sorted_terms:
+                        sorted_terms.append(term)
+                        break
+
+        print("Computing term frequencies")
+        for term in tqdm(sorted_terms):
+            term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
+    if save_flag:
+        with open("./data/mesh_term_freq_vals.csv", "w") as out:
+            for term in term_freqs:
+                out.write(",".join([term, str(term_freqs[term])]))
+                out.write("\n")
+
 # A function for multiprocessing
 def output_writer(write_queue, out_path):
     with open(out_path, "w") as out:
@@ -181,14 +218,10 @@ def main():
     # Get term frequencies (counts) recursively as described by
     # Song et al
     start_time = time.perf_counter()
-    term_freqs = {uid:-1 for uid in uids}
-#    print("Computing term frequencies")
-#    for term in tqdm(term_freqs):
-#        term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
-    with open("./data/mesh_term_freq_vals.csv", "r") as handle:
-        for line in handle:
-	        line = line.strip("\n").split(",")
-	        term_freqs[line[0]] = int(line[1])
+    
+    # Get term counts. If recounting terms change the flags
+    term_freqs = get_term_freqs(term_counts, term_trees, uids, load_flag=False, save_flag=True)
+
     # Get elapsed time and truncate for log
     elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
     logger.info(f"Term freqs calculated in {elapsed_time} seconds")
