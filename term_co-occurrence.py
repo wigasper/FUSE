@@ -25,6 +25,13 @@ mesh_list_start = re.compile(r"\s*<MeshHeadingList>")
 mesh_list_stop = re.compile(r"\s*</MeshHeadingList>")
 mesh_term_id = re.compile(r'\s*<DescriptorName UI="(D\d+)".*>')
 
+# Load term subset to count for
+term_subset = []
+with open("./data/subset_terms_list", "r") as handle:
+    for line in handle:
+        term_subset.append(line.strip("\n"))
+term_subset = set(term_subset)
+
 # Get docs list, initialize variables
 docs = os.listdir("./pubmed_bulk")
 doc_terms = {}
@@ -50,8 +57,9 @@ for doc in tqdm(docs):
                             doc_pmid = pmid.search(line).group(1)
                         if mesh_list_start.search(line):
                             while not mesh_list_stop.search(line):
-                                if mesh_term_id.search(line):
-                                    term_ids.append(mesh_term_id.search(line).group(1))
+                                mesh_match = mesh_term_id.search(line)
+                                if mesh_match and mesh_match.group(1) in term_subset:
+                                    term_ids.append(mesh_match.group(1))
                                 line = handle.readline()
                         line = handle.readline()
                 line = handle.readline()
