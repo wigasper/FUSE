@@ -10,6 +10,7 @@ import traceback
 from multiprocessing import Process, Queue
 from copy import deepcopy
 from itertools import combinations
+from subprocess import Popen, PIPE
 
 import numpy as np
 from tqdm import tqdm
@@ -112,6 +113,8 @@ def count_mesh_terms(doc_list, uids, logger, load_flag=True, save_flag=False):
             json.dump(term_counts, out)
     return term_counts
 
+# Get term frequencies by counting (according to Song et al.'s recursive definition)
+# or by loading
 def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=False):
     term_freqs = {uid:-1 for uid in uids}
     
@@ -140,7 +143,7 @@ def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=Fals
                         sorted_terms.append(term)
                         break
 
-        print("Computing term frequencies")
+        print("Computing term frequencies...")
         for term in tqdm(sorted_terms):
             term_freqs[term] = freq(term, term_counts, term_freqs, term_trees)
 
@@ -152,7 +155,7 @@ def get_term_freqs(term_counts, term_trees, uids, load_flag=True, save_flag=Fals
     
     return term_freqs
 
-# A function for multiprocessing
+# A function for multiprocessing, pulls from the queue and writes
 def output_writer(write_queue, out_path):
     with open(out_path, "w") as out:
         while True:
@@ -161,6 +164,8 @@ def output_writer(write_queue, out_path):
                 break
             out.write("".join([result, "\n"]))
 
+# A function for multiprocessing, the worker grabs a pair of terms from the queue
+# and then computes the semantic similarity for the pair
 def mp_worker(work_queue, write_queue, id_num, sws, svs, term_trees, term_trees_rev):
     # Set up logging - I do actually want a logger for each worker to catch any exceptions
     # this is easier than sharing the original logger - but this may be implemented
@@ -268,6 +273,7 @@ def main():
         svs[term] = sv
 
     # Compute semantic similarity for each pair utilizing multiprocessing
+    print("Computing semantic similarities...")
     start_time = time.perf_counter()
 
     num_workers = 3
@@ -308,7 +314,13 @@ def main():
     elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
     logger.info(f"Semantic similarities calculated in {elapsed_time} seconds")
 
-    # use subprocess to cat here
+    # Cleanup
+    cat = "cat ./data/semantic_similarities_rev1.*.csv > ./data/semantic_similarities_rev1.csv"
+    with Popen(cat, stdout=PIPE, stderr=PIPE, shell=True) as proc:
+        results, errs = proc.communicate()
+    with Popen("rm ./data/semantic_similarities_rev1.*.csv", stdout=PIPE, 
+                stderr=PIPE, shell=True) as proc:
+        results, errs = proc.communicate()
 
 if __name__ == "__main__":
     main()
