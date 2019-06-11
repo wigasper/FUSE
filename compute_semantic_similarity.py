@@ -234,15 +234,17 @@ def main():
     # Compute semantic similarity for each pair utilizing multiprocessing
     start_time = time.perf_counter()
 
-    num_workers = 4
-    write_queue = Queue()
-    work_queue = Queue()
+    num_workers = 3
+    num_writers = 2
+    write_queue = Queue(maxsize=100)
+    work_queue = Queue(maxsize=100)
 
-    out_path = "./data/semantic_similarities_rev1.csv"
+    writers = [Process(target=output_writer, args=(write_queue, 
+                f"./data/semantic_similarities_rev1.{num}.csv")) for num in range(num_writers)]
 
-    writer = Process(target=output_writer, args=(write_queue, out_path))
-    writer.daemon = True
-    writer.start()
+    for writer in writers:
+        writer.daemon = True
+        writer.start()
 
     processes = [Process(target=mp_worker, args=(work_queue, write_queue, num, deepcopy(sws), 
                 deepcopy(svs), deepcopy(term_trees), deepcopy(term_trees_rev))) for num in range(num_workers)]
@@ -262,12 +264,15 @@ def main():
     for process in processes:
         process.join()
     
-    write_queue.put(None)
-    writer.join()
+    for writer in writers:
+        write_queue.put(None)
+        writer.join()
 
     # Get elapsed time and truncate for log
     elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
     logger.info(f"Semantic similarities calculated in {elapsed_time} seconds")
+
+    # use subprocess to cat here
 
 if __name__ == "__main__":
     main()
