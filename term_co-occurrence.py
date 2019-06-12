@@ -110,10 +110,20 @@ def main():
         docs = os.listdir("./pubmed_bulk")
         count_doc_terms(docs, term_subset, logger)
 
+    co_matrix = np.zeros((len(term_subset), len(term_subset)))
+
     matrix_gen = td_matrix_gen("./data/pm_bulk_doc_term_counts.csv", term_subset)
 
-    td_matrix = np.array(next(matrix_gen))
-    co_matrix = np.dot(td_matrix.transpose(), td_matrix)
+    count = 0
+
+    for matrix in matrix_gen:
+        td_matrix = np.array(next(matrix_gen))
+        temp_co_matrix = np.dot(td_matrix.transpose(), td_matrix)
+        co_matrix = co_matrix + temp_co_matrix
+        count += 1000
+        logger.info(f"{count} docs added to matrix")
+
+    np.save("./data/co-occurrence-matrix", co_matrix)
 
 if __name__ == "__main__":
 	main()
