@@ -111,7 +111,8 @@ def matrix_builder(work_queue, add_queue, id_num):
 
 # A function for multiprocessing, pulls from the queue and writes
 def matrix_adder(add_queue, co_matrix, docs_per_matrix, num, logger):
-    log_interval = 50
+    # Log counts and rates after every n matrices
+    log_interval = 800
     total_processed = 0
     start_time = time.perf_counter()
     while True:
@@ -154,6 +155,8 @@ def main():
         docs = os.listdir("./pubmed_bulk")
         count_doc_terms(docs, term_subset, logger)
 
+    # This value was determined in testing but is kind of arbitrary
+    # Maybe need to figure out a better way to get this
     docs_per_matrix = 34
 
     matrix_gen = td_matrix_gen("./data/pm_bulk_doc_term_counts.csv", term_subset, docs_per_matrix)
