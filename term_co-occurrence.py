@@ -5,6 +5,7 @@ import time
 import argparse
 import logging
 import traceback
+from multiprocessing import Process, Queue
 
 import numpy as np
 from tqdm import tqdm
@@ -68,11 +69,11 @@ def count_doc_terms(doc_list, term_subset, logger):
             out.write(",".join(doc_terms[doc]))
             out.write("\n")
 
-def td_matrix_gen(file_path, term_subset):
+def td_matrix_gen(file_path, term_subset, docs_per_matrix):
     with open("./data/pm_bulk_doc_term_counts.csv", "r") as handle:
         td_matrix = []
         for line in handle:
-            if len(td_matrix) > 1000:
+            if len(td_matrix) > docs_per_matrix:
                 yield td_matrix
                 td_matrix = []
             line = line.strip("\n").split(",")
@@ -84,6 +85,49 @@ def td_matrix_gen(file_path, term_subset):
                 else:
                     row.append(0)
             td_matrix.append(row)
+
+def mp_worker(work_queue, add_queue, id_num):
+    # Set up logging - I do actually want a logger for each worker to catch any exceptions
+    # this is easier than sharing the original logger - but this may be implemented
+    # in the future
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    handler = logging.FileHandler(f"./logs/term_co-occurrence_worker{id_num}.log")
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+    try:
+        while True:
+            matrix = work_queue.get()
+            if matrix is None:
+                break
+            td_matrix = np.array(matrix)
+            co_matrix = np.dot(td_matrix.transpose(), td_matrix)
+            add_queue.put(co_matrix)
+
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(repr(e))
+        logger.critical(trace)
+
+# A function for multiprocessing, pulls from the queue and writes
+def matrix_adder(add_queue, co_matrix, docs_per_matrix, logger):
+    log_interval = 50
+    total_processed = 0
+    start_time = time.perf_counter()
+    while True:
+        if total_processed and total_processed % log_interval == 0:
+            elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
+            time_per_it = elapsed_time / (docs_per_matrix * log_interval)
+            logger.info(f"{total_processed} docs added to matrix - last batch of {docs_per_matrix * log_interval} at a rate of {time_per_it} sec/it")
+            start_time.perf_counter()
+
+        matrix_to_add = add_queue.get()
+        if matrix_to_add is None:
+            break
+        co_matrix = co_matrix + matrix_to_add
+        total_processed += 1
 
 def main():
     # Get command line args
@@ -110,19 +154,60 @@ def main():
         docs = os.listdir("./pubmed_bulk")
         count_doc_terms(docs, term_subset, logger)
 
+    # Build co-occurrence matrix
     co_matrix = np.zeros((len(term_subset), len(term_subset)))
 
-    matrix_gen = td_matrix_gen("./data/pm_bulk_doc_term_counts.csv", term_subset)
+    docs_per_matrix = 34
 
-    count = 0
+    matrix_gen = td_matrix_gen("./data/pm_bulk_doc_term_counts.csv", term_subset, docs_per_matrix)
+
+    # Set up multiprocessing
+    num_workers = 4
+    #num_adders = 1
+    add_queue = Queue(maxsize=100)
+    work_queue = Queue(maxsize=100)
+
+    adder = Process(target=matrix_adder, args=(add_queue, co_matrix, docs_per_matrix, logger))
+    adder.daemon = True
+    adder.start()
+    #adders = [Process(target=matrix_adder, args=(add_queue, 
+    #        f"./data/semantic_similarities_rev1.{num}.csv")) for num in range(num_adders)]
+    
+    #for adder in adders:
+    #    adder.daemon = True
+    #    adder.start()
+
+    workers = [Process(target=mp_worker, args=(work_queue, add_queue, num)) for num in range(num_workers)]
+
+    for worker in workers:
+        worker.start()
 
     for matrix in matrix_gen:
-        td_matrix = np.array(next(matrix_gen))
+        work_queue.put(matrix)
+    
+    while True:
+        if work_queue.empty():
+            for _ in range(num_workers):
+                work_queue.put(None)
+            break
+
+    for worker in workers:
+        worker.join()
+
+    add_queue.put(None)
+    adder.join()
+    """
+    for matrix in matrix_gen:
+        start_time = time.perf_counter()
+        td_matrix = np.array(matrix)
         temp_co_matrix = np.dot(td_matrix.transpose(), td_matrix)
         co_matrix = co_matrix + temp_co_matrix
-        count += 1000
-        logger.info(f"{count} docs added to matrix")
-
+        count += docs_per_matrix
+        elapsed_time = time.perf_counter() - start_time
+        #elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
+        time_per_it = elapsed_time / docs_per_matrix
+        print(f"{count} docs added to matrix - last batch of {docs_per_matrix} at a rate of {time_per_it} sec/it")
+    """
     np.save("./data/co-occurrence-matrix", co_matrix)
 
 if __name__ == "__main__":
