@@ -86,10 +86,8 @@ def td_matrix_gen(file_path, term_subset, docs_per_matrix):
                     row.append(0)
             td_matrix.append(row)
 
-def mp_worker(work_queue, add_queue, id_num):
-    # Set up logging - I do actually want a logger for each worker to catch any exceptions
-    # this is easier than sharing the original logger - but this may be implemented
-    # in the future
+def matrix_builder(work_queue, add_queue, id_num):
+    # Set up logging - I do actually want a logger for each worker
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     handler = logging.FileHandler(f"./logs/term_co-occurrence_worker{id_num}.log")
@@ -112,7 +110,7 @@ def mp_worker(work_queue, add_queue, id_num):
         logger.critical(trace)
 
 # A function for multiprocessing, pulls from the queue and writes
-def matrix_adder(add_queue, co_matrix, docs_per_matrix, logger):
+def matrix_adder(add_queue, co_matrix, docs_per_matrix, num, logger):
     log_interval = 50
     total_processed = 0
     start_time = time.perf_counter()
@@ -120,7 +118,8 @@ def matrix_adder(add_queue, co_matrix, docs_per_matrix, logger):
         if total_processed and total_processed % log_interval == 0:
             elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
             time_per_it = elapsed_time / (docs_per_matrix * log_interval)
-            logger.info(f"{total_processed} docs added to matrix - last batch of {docs_per_matrix * log_interval} at a rate of {time_per_it} sec/it")
+            logger.info(f"Adder {num}: {total_processed * docs_per_matrix} docs added to matrix - last batch of "
+                        f"{docs_per_matrix * log_interval} at a rate of {time_per_it} sec/it")
             start_time = time.perf_counter()
 
         matrix_to_add = add_queue.get()
@@ -133,6 +132,7 @@ def main():
     # Get command line args
     parser = argparse.ArgumentParser()
     parser.add_argument("-rc", "--recount", help="recount terms for each doc", type=str)
+    parser.add_argument("-n", "--num_docs", help="number of docs to make matrices for", type=int)
     args = parser.parse_args()
 
     # Set up logging
@@ -154,48 +154,52 @@ def main():
         docs = os.listdir("./pubmed_bulk")
         count_doc_terms(docs, term_subset, logger)
 
-    # Build co-occurrence matrix
-    co_matrix = np.zeros((len(term_subset), len(term_subset)))
-
     docs_per_matrix = 34
 
     matrix_gen = td_matrix_gen("./data/pm_bulk_doc_term_counts.csv", term_subset, docs_per_matrix)
 
     # Set up multiprocessing
-    num_workers = 5
-    #num_adders = 1
+    num_builders = 5
+    num_adders = 2
     add_queue = Queue(maxsize=5)
-    work_queue = Queue(maxsize=num_workers)
+    build_queue = Queue(maxsize=num_builders)
 
-    adder = Process(target=matrix_adder, args=(add_queue, co_matrix, docs_per_matrix, logger))
-    adder.daemon = True
-    adder.start()
-    #adders = [Process(target=matrix_adder, args=(add_queue, 
-    #        f"./data/semantic_similarities_rev1.{num}.csv")) for num in range(num_adders)]
+    # Build co-occurrence matrices for each adder to work with
+    co_matrices = [np.zeros((len(term_subset), len(term_subset))) for _ in range(num_adders)]
+
+    adders = [Process(target=matrix_adder, args=(add_queue, co_matrices[num], 
+                    docs_per_matrix, num, logger)) for num in range(num_adders)]
     
-    #for adder in adders:
-    #    adder.daemon = True
-    #    adder.start()
+    for adder in adders:
+        adder.daemon = True
+        adder.start()
 
-    workers = [Process(target=mp_worker, args=(work_queue, add_queue, num)) for num in range(num_workers)]
+    builders = [Process(target=matrix_builder, args=(build_queue, add_queue, num)) for num in range(num_builders)]
 
-    for worker in workers:
-        worker.start()
+    for builder in builders:
+        builder.start()
 
+    if args.num_docs:
+        limit = args.num_docs / docs_per_matrix
+    
+    count = 0
     for matrix in matrix_gen:
-        work_queue.put(matrix)
+        if args.num_docs and count < limit:
+            build_queue.put(matrix)
+            count += 1
     
     while True:
-        if work_queue.empty():
-            for _ in range(num_workers):
-                work_queue.put(None)
+        if build_queue.empty():
+            for _ in range(num_builders):
+                build_queue.put(None)
             break
 
-    for worker in workers:
-        worker.join()
+    for builder in builders:
+        builder.join()
 
-    add_queue.put(None)
-    adder.join()
+    for adder in adders:
+        add_queue.put(None)
+        adder.join()
     """
     for matrix in matrix_gen:
         start_time = time.perf_counter()
@@ -208,6 +212,8 @@ def main():
         time_per_it = elapsed_time / docs_per_matrix
         print(f"{count} docs added to matrix - last batch of {docs_per_matrix} at a rate of {time_per_it} sec/it")
     """
+    co_matrix = sum(co_matrices)
+    
     np.save("./data/co-occurrence-matrix", co_matrix)
 
 if __name__ == "__main__":
