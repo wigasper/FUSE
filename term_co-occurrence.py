@@ -121,7 +121,7 @@ def matrix_adder(add_queue, co_matrix, docs_per_matrix, logger):
             elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
             time_per_it = elapsed_time / (docs_per_matrix * log_interval)
             logger.info(f"{total_processed} docs added to matrix - last batch of {docs_per_matrix * log_interval} at a rate of {time_per_it} sec/it")
-            start_time.perf_counter()
+            start_time = time.perf_counter()
 
         matrix_to_add = add_queue.get()
         if matrix_to_add is None:
@@ -162,10 +162,10 @@ def main():
     matrix_gen = td_matrix_gen("./data/pm_bulk_doc_term_counts.csv", term_subset, docs_per_matrix)
 
     # Set up multiprocessing
-    num_workers = 4
+    num_workers = 5
     #num_adders = 1
-    add_queue = Queue(maxsize=100)
-    work_queue = Queue(maxsize=100)
+    add_queue = Queue(maxsize=5)
+    work_queue = Queue(maxsize=num_workers)
 
     adder = Process(target=matrix_adder, args=(add_queue, co_matrix, docs_per_matrix, logger))
     adder.daemon = True
