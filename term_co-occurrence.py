@@ -172,8 +172,7 @@ def main():
     build_queue = Queue(maxsize=num_builders)
     completed_queue = Queue(maxsize=num_adders + 1)
 
-    # Build co-occurrence matrices for each adder to work with
-    #co_matrices = [np.zeros((len(term_subset), len(term_subset))) for _ in range(num_adders)]
+    logger.info(f"Starting workers on {args.num_docs} docs")
 
     adders = [Process(target=matrix_adder, args=(add_queue, completed_queue, len(term_subset), 
                     docs_per_matrix, num, logger)) for num in range(num_adders)]
@@ -236,6 +235,7 @@ def main():
     
     np.save("./data/co-occurrence-matrix", co_matrix)
 
+    """
     # Compute probabilities to compare against
     term_counts = {}
 
@@ -265,6 +265,7 @@ def main():
         for col in range(expected.shape[1]):
             expected[row, col] = term_counts[term_subset[row]] * term_counts[term_subset[col]]
 
+    expected[expected == 0] = np.NaN
     # Get the total number of co-occurrences
     total_cooccurrs = 0
     for row in range(co_matrix.shape[0]):
@@ -279,6 +280,6 @@ def main():
 
     differential = np.divide(co_matrix, expected)
 
-
+    """
 if __name__ == "__main__":
 	main()
