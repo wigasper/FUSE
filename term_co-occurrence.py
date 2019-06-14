@@ -16,6 +16,8 @@ def count_doc_terms(doc_list, term_subset, logger):
     doc_pmid = ""
     term_ids = []
 
+    term_set = set(term_subset)
+
     # Compile regexes
     pm_article_start = re.compile(r"\s*<PubmedArticle>")
     pm_article_stop = re.compile(r"\s*</PubmedArticle>")
@@ -44,7 +46,7 @@ def count_doc_terms(doc_list, term_subset, logger):
                             if mesh_list_start.search(line):
                                 while not mesh_list_stop.search(line):
                                     mesh_match = mesh_term_id.search(line)
-                                    if mesh_match and mesh_match.group(1) in term_subset:
+                                    if mesh_match and mesh_match.group(1) in term_set:
                                         term_ids.append(mesh_match.group(1))
                                     line = handle.readline()
                             line = handle.readline()
@@ -152,7 +154,6 @@ def main():
     with open("./data/subset_terms_list", "r") as handle:
         for line in handle:
             term_subset.append(line.strip("\n"))
-    term_subset = set(term_subset)
 
     if args.recount:
         docs = os.listdir("./pubmed_bulk")
@@ -205,12 +206,15 @@ def main():
                 build_queue.put(None)
             break
 
+    print("point1")
     for builder in builders:
         builder.join()
 
+    print("point2")
     for adder in adders:
         add_queue.put(None)
 
+    print("point3")
     if add_queue.empty():
         for adder in adders:
             adder.join()
@@ -226,6 +230,7 @@ def main():
         time_per_it = elapsed_time / docs_per_matrix
         print(f"{count} docs added to matrix - last batch of {docs_per_matrix} at a rate of {time_per_it} sec/it")
     """
+    print("point4")
     co_matrices = []
     for _ in range(num_adders):
         co_matrices.append(completed_queue.get())
