@@ -138,7 +138,7 @@ def main():
     # Get command line args
     parser = argparse.ArgumentParser()
     parser.add_argument("-rc", "--recount", help="recount terms for each doc", type=str)
-    parser.add_argument("-n", "--num_docs", help="number of docs to make matrices for", type=int)
+    parser.add_argument("-n", "--num_docs", help="number of docs to build co-occurrence matrix with", type=int)
     args = parser.parse_args()
 
     # Set up logging
@@ -192,11 +192,11 @@ def main():
     else:
         limit = math.inf
     
-    count = 0
+    doc_count = 0
     for matrix in matrix_gen:
-        if count < limit:
+        if doc_count < limit:
             build_queue.put(matrix)
-            count += 1
+            doc_count += 1
         else:
             break
     
@@ -206,15 +206,12 @@ def main():
                 build_queue.put(None)
             break
 
-    print("point1")
     for builder in builders:
         builder.join()
 
-    print("point2")
     for adder in adders:
         add_queue.put(None)
 
-    print("point3")
     if add_queue.empty():
         for adder in adders:
             adder.join()
@@ -230,7 +227,7 @@ def main():
         time_per_it = elapsed_time / docs_per_matrix
         print(f"{count} docs added to matrix - last batch of {docs_per_matrix} at a rate of {time_per_it} sec/it")
     """
-    print("point4")
+
     co_matrices = []
     for _ in range(num_adders):
         co_matrices.append(completed_queue.get())
@@ -238,6 +235,50 @@ def main():
     co_matrix = sum(co_matrices)
     
     np.save("./data/co-occurrence-matrix", co_matrix)
+
+    # Compute probabilities to compare against
+    term_counts = {}
+
+    with open("./data/mesh_data.tab", "r") as handle:
+        for line in handle:
+            line = line.strip("\n").split("\t")
+            term_counts[line[0]] = 0
+
+    with open("./data/pm_bulk_doc_term_counts.csv", "r") as handle:
+        for _ in range(doc_count):
+            line = handle.readline()
+            line = line.strip("\n").split(",")
+            terms = line[1:]
+            for term in terms:
+                term_counts[term] += 1
+    
+    # Get probability of each term for the document set
+    total_terms = sum(term_counts.values())
+
+    for term in term_counts:
+        term_counts[term] = term_counts[term] / total_terms
+
+    # Create the expected co-occurrence probability matrix
+    expected = np.zeros((len(term_subset), len(term_subset)))
+
+    for row in range(expected.shape[0]):
+        for col in range(expected.shape[1]):
+            expected[row, col] = term_counts[term_subset[row]] * term_counts[term_subset[col]]
+
+    # Get the total number of co-occurrences
+    total_cooccurrs = 0
+    for row in range(co_matrix.shape[0]):
+        for col in range(co_matrix.shape[1]):
+            if row != col:
+                total_cooccurrs += co_matrix[row, col]
+    total_cooccurs = total_cooccurrs / 2
+
+    temp_total_array = np.full((len(co_matrix), len(co_matrix)), total_cooccurs)
+
+    co_matrix = np.divide(co_matrix, temp_total_array)
+
+    differential = np.divide(co_matrix, expected)
+
 
 if __name__ == "__main__":
 	main()
