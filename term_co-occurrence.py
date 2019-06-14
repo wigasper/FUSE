@@ -2,6 +2,7 @@
 import os
 import re
 import time
+import math
 import argparse
 import logging
 import traceback
@@ -110,10 +111,11 @@ def matrix_builder(work_queue, add_queue, id_num):
         logger.critical(trace)
 
 # A function for multiprocessing, pulls from the queue and writes
-def matrix_adder(add_queue, co_matrix, docs_per_matrix, num, logger):
+def matrix_adder(add_queue, completed_queue, dim, docs_per_matrix, num, logger):
     # Log counts and rates after every n matrices
     log_interval = 800
     total_processed = 0
+    co_matrix = np.zeros((dim, dim))
     start_time = time.perf_counter()
     while True:
         if total_processed and total_processed % log_interval == 0:
@@ -125,6 +127,7 @@ def matrix_adder(add_queue, co_matrix, docs_per_matrix, num, logger):
 
         matrix_to_add = add_queue.get()
         if matrix_to_add is None:
+            completed_queue.put(co_matrix)
             break
         co_matrix = co_matrix + matrix_to_add
         total_processed += 1
@@ -166,15 +169,16 @@ def main():
     num_adders = 2
     add_queue = Queue(maxsize=5)
     build_queue = Queue(maxsize=num_builders)
+    completed_queue = Queue(maxsize=num_adders + 1)
 
     # Build co-occurrence matrices for each adder to work with
-    co_matrices = [np.zeros((len(term_subset), len(term_subset))) for _ in range(num_adders)]
+    #co_matrices = [np.zeros((len(term_subset), len(term_subset))) for _ in range(num_adders)]
 
-    adders = [Process(target=matrix_adder, args=(add_queue, co_matrices[num], 
+    adders = [Process(target=matrix_adder, args=(add_queue, completed_queue, len(term_subset), 
                     docs_per_matrix, num, logger)) for num in range(num_adders)]
     
     for adder in adders:
-        adder.daemon = True
+        #adder.daemon = True
         adder.start()
 
     builders = [Process(target=matrix_builder, args=(build_queue, add_queue, num)) for num in range(num_builders)]
@@ -184,12 +188,16 @@ def main():
 
     if args.num_docs:
         limit = args.num_docs / docs_per_matrix
+    else:
+        limit = math.inf
     
     count = 0
     for matrix in matrix_gen:
-        if args.num_docs and count < limit:
+        if count < limit:
             build_queue.put(matrix)
             count += 1
+        else:
+            break
     
     while True:
         if build_queue.empty():
@@ -202,7 +210,10 @@ def main():
 
     for adder in adders:
         add_queue.put(None)
-        adder.join()
+
+    if add_queue.empty():
+        for adder in adders:
+            adder.join()
     """
     for matrix in matrix_gen:
         start_time = time.perf_counter()
@@ -215,6 +226,10 @@ def main():
         time_per_it = elapsed_time / docs_per_matrix
         print(f"{count} docs added to matrix - last batch of {docs_per_matrix} at a rate of {time_per_it} sec/it")
     """
+    co_matrices = []
+    for _ in range(num_adders):
+        co_matrices.append(completed_queue.get())
+
     co_matrix = sum(co_matrices)
     
     np.save("./data/co-occurrence-matrix", co_matrix)
