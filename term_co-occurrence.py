@@ -235,7 +235,6 @@ def main():
     
     np.save("./data/co-occurrence-matrix", co_matrix)
 
-    """
     # Compute probabilities to compare against
     term_counts = {}
 
@@ -249,6 +248,7 @@ def main():
             line = handle.readline()
             line = line.strip("\n").split(",")
             terms = line[1:]
+            terms = [term for term in terms if term]
             for term in terms:
                 term_counts[term] += 1
     
@@ -280,6 +280,9 @@ def main():
 
     differential = np.divide(co_matrix, expected)
 
-    """
+    differential[differential == 0] = np.NaN
+    
+    differential = np.log(differential)
+    
 if __name__ == "__main__":
 	main()
