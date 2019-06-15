@@ -214,18 +214,6 @@ def main():
     if add_queue.empty():
         for adder in adders:
             adder.join()
-    """
-    for matrix in matrix_gen:
-        start_time = time.perf_counter()
-        td_matrix = np.array(matrix)
-        temp_co_matrix = np.dot(td_matrix.transpose(), td_matrix)
-        co_matrix = co_matrix + temp_co_matrix
-        count += docs_per_matrix
-        elapsed_time = time.perf_counter() - start_time
-        #elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
-        time_per_it = elapsed_time / docs_per_matrix
-        print(f"{count} docs added to matrix - last batch of {docs_per_matrix} at a rate of {time_per_it} sec/it")
-    """
 
     co_matrices = []
     for _ in range(num_adders):
@@ -265,24 +253,37 @@ def main():
         for col in range(expected.shape[1]):
             expected[row, col] = term_counts[term_subset[row]] * term_counts[term_subset[col]]
 
+    # Fill 0s with np.NaN to avoid zero division errors later
     expected[expected == 0] = np.NaN
+
     # Get the total number of co-occurrences
     total_cooccurrs = 0
     for row in range(co_matrix.shape[0]):
         for col in range(co_matrix.shape[1]):
             if row != col:
                 total_cooccurrs += co_matrix[row, col]
-    total_cooccurs = total_cooccurrs / 2
+    total_cooccurrs = total_cooccurrs / 2
 
-    temp_total_array = np.full((len(co_matrix), len(co_matrix)), total_cooccurs)
+    # Create an array just consisting of the total number of co-occurrences in the corpus
+    temp_total_array = np.full((len(co_matrix), len(co_matrix)), total_cooccurrs)
 
+    # Divide each number of co-occurrences by the the total to get P(co-occurrence)
     co_matrix = np.divide(co_matrix, temp_total_array)
 
-    differential = np.divide(co_matrix, expected)
+    # Divide P(co-occurrence) by expected P(co-occurrence) to get the likelihood ratio
+    likelihood_ratios = np.divide(co_matrix, expected)
 
-    differential[differential == 0] = np.NaN
+    # Set 0s to NaN to avoid taking log(0)
+    likelihood_ratios[likelihood_ratios == 0] = np.NaN
     
-    differential = np.log(differential)
+    # Take the log of the array to get the log-likelihood ratio
+    log_ratios = np.log(likelihood_ratios)
     
+    with open("./data/term_co-occ_log_likelihoods.csv", "w") as out:
+        for row in range(log_ratios.shape[0]):
+            for col in range(row + 1, log_ratios.shape[1]):
+                if not np.isnan(log_ratios[row,col]):
+                    out.write(",".join([term_subset[row], term_subset[col], str(log_ratios[row,col])]))
+
 if __name__ == "__main__":
 	main()
