@@ -37,7 +37,18 @@ def main():
     # Load in solution values
     with open("../data/baseline_solution.json", "r") as handle:
         solution = json.load(handle)
+        
+    # Get max freq for docs with more than 10 terms applied to their citations
+    max_freq = 0
+    for doc in term_freqs:
+        for term in term_freqs[doc].keys():
+            if len(term_freqs[doc]) > 10 and term_freqs[doc][term] > max_freq:
+                max_freq = doc[1][term]
     
+    # Divide values by max
+    for doc in term_freqs:
+        for term in term_freqs[doc].keys():
+            doc[1][term] = doc[1][term] / max_freq
     # Load term subset to count for
     term_subset = []
     with open("../data/subset_terms_list", "r") as handle:
@@ -48,7 +59,7 @@ def main():
     term_idxs = {term_subset[idx]: idx for idx in range(len(term_subset))}
     term_idxs_reverse = {idx: term_subset[idx] for idx in range(len(term_subset))}
     
-    sem_sims = array_builder("../data/semantic_similarities_rev1.csv", term_idxs)
+    #sem_sims = array_builder("../data/semantic_similarities_rev1.csv", term_idxs)
                 
     coocc_log_ratios = array_builder("../data/term_co-occ_log_likelihoods.csv", term_idxs)
     max_ratio = np.max(coocc_log_ratios)
@@ -57,22 +68,22 @@ def main():
     for doc in tqdm(term_freqs.keys()):
         try:
             # add semantically similar terms to each pool and weight by similarity
-            similar_terms = {}
+#            similar_terms = {}
             coocc_terms = {}
             for term in term_freqs[doc].keys():
                 if term in term_idxs.keys():
                     row = term_idxs[term]
                     # coocc_log_ratios must have same dims here, may need to do something about this
-                    for col in range(sem_sims.shape[0]):
-                        if sem_sims[row, col] > .5:
-                            similar_terms[term_idxs_reverse[col]] = sem_sims[row,col] * term_freqs[doc][term]
-                        if coocc_log_ratios[row, col] > 5:
+                    for col in range(coocc_log_ratios.shape[0]):
+#                        if sem_sims[row, col] > .5:
+#                            similar_terms[term_idxs_reverse[col]] = sem_sims[row,col] * term_freqs[doc][term]
+                        if coocc_log_ratios[row, col] > 2 or coocc_log_ratios[row, col] < -2:
                             coocc_terms[term_idxs_reverse[col]] = (coocc_log_ratios[row, col] / max_ratio) * term_freqs[doc][term]
-            for term in similar_terms.keys():
-                if term in term_freqs[doc].keys():
-                    term_freqs[doc][term] += similar_terms[term]
-                else:
-                    term_freqs[doc][term] = similar_terms[term]
+#            for term in similar_terms.keys():
+#                if term in term_freqs[doc].keys():
+#                    term_freqs[doc][term] += similar_terms[term]
+#                else:
+#                    term_freqs[doc][term] = similar_terms[term]
     
             for term in coocc_terms.keys():
                 if term in term_freqs[doc].keys():
@@ -84,11 +95,77 @@ def main():
             logger.error(repr(e))
             logger.critical(trace)
     logger.info("Semantic similarity and co-occurrence incorporation complete")
-    
-    logger.info("Writing output")
-    with open("../data/term_freqs_w_semsim_termcoocc.json", "w") as out:
-        json.dump(term_freqs, out)
 
+############################################################################
+#    logger.info("Writing output")
+#    with open("../data/term_freqs_w_semsim_termcoocc.json", "w") as out:
+#        json.dump(term_freqs, out)
+#
+#    with open("../data/term_freqs_w_semsim_termcoocc.json", "r") as handle:
+#        term_freqs = json.load(handle)
+#        
+##############################################################
+        
+    thresholds = [x * .005 for x in range(0,200)]
+    
+    predictions = {}
+    precisions = []
+    recalls = []
+    f1s = []
+    
+    # Run the model for all thresholds
+    for thresh in tqdm(thresholds):
+        # Predict
+        for doc in term_freqs.keys():
+            predictions[doc] = [key for key, val in term_freqs[doc].items() if val > thresh]
+            
+        # Get evaluation metrics
+        true_pos = 0
+        false_pos = 0
+        false_neg = 0
+        
+        for pmid in predictions:
+            true_pos += len([pred for pred in predictions[pmid] if pred in solution[pmid]])
+            false_pos += len([pred for pred in predictions[pmid] if pred not in solution[pmid]])
+            false_neg += len([sol for sol in solution[pmid] if sol not in predictions[pmid]])
+    
+        if true_pos == 0:
+            precision = 0
+            recall = 0
+            f1 = 0
+        else:
+            precision = true_pos / (true_pos + false_pos)
+            recall = true_pos / (true_pos + false_neg)
+            f1 = (2 * precision * recall) / (precision + recall)
+        
+        precisions.append(precision)
+        recalls.append(recall)
+        f1s.append(f1)   
+            
+    from sklearn.metrics import auc
+    from matplotlib import pyplot
+    
+    # AUC
+    AUC = auc(recalls, precisions)
+    print("AUC: ", AUC)
+    pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
+    pyplot.plot(recalls, precisions, marker=".")
+    #pyplot.savefig("../pr_curve.png")
+    pyplot.show()
+    
+    from notify import notify
+    msg = "".join(["all done, auc: ", str(AUC), "\nmax F1: ", str(max(f1s))])
+    notify(msg)
+    
+    # Write evaluation metrics
+    with open("../data/informed_eval_metrics_1.csv", "w") as out:
+        for index in range(len(thresholds)):
+            out.write("".join([str(thresholds[index]), ","]))
+            out.write("".join([str(precisions[index]), ","]))
+            out.write("".join([str(recalls[index]), ","]))
+            out.write("".join([str(f1s[index]), "\n"]))      
+if __name__ == "__main__":
+	main()
 """
 
 ############################################
