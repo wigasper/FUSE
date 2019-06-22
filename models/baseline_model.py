@@ -9,6 +9,17 @@ with open("../data/term_freqs.json", "r") as handle:
 with open("../data/baseline_solution.json", "r") as handle:
     solution = json.load(handle)
 
+# Get max freq for docs with 
+max_freq = 0
+for doc in term_freqs:
+    for term in doc[1]:
+        if len(doc[1]) > 10 and doc[1][term] > max_freq:
+            max_freq = doc[1][term]
+
+for doc in term_freqs:
+    for term in doc[1]:
+        doc[1][term] = doc[1][term] / max_freq
+        
 # The baseline model. This model will predict a term if its frequency
 # is greater than the threshold
 thresholds = [x * .005 for x in range(0,200)]
