@@ -43,12 +43,12 @@ def main():
     for doc in term_freqs:
         for term in term_freqs[doc].keys():
             if len(term_freqs[doc]) > 10 and term_freqs[doc][term] > max_freq:
-                max_freq = doc[1][term]
+                max_freq = term_freqs[doc][term]
     
     # Divide values by max
     for doc in term_freqs:
         for term in term_freqs[doc].keys():
-            doc[1][term] = doc[1][term] / max_freq
+            term_freqs[doc][term] = term_freqs[doc][term] / max_freq
     # Load term subset to count for
     term_subset = []
     with open("../data/subset_terms_list", "r") as handle:
@@ -148,10 +148,10 @@ def main():
     # AUC
     AUC = auc(recalls, precisions)
     print("AUC: ", AUC)
-    pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
-    pyplot.plot(recalls, precisions, marker=".")
+    #pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
+    #pyplot.plot(recalls, precisions, marker=".")
     #pyplot.savefig("../pr_curve.png")
-    pyplot.show()
+    #pyplot.show()
     
     from notify import notify
     msg = "".join(["all done, auc: ", str(AUC), "\nmax F1: ", str(max(f1s))])
