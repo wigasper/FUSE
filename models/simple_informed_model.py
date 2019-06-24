@@ -64,6 +64,9 @@ def main():
     coocc_log_ratios = array_builder("../data/term_co-occ_log_likelihoods.csv", term_idxs)
     max_ratio = np.max(coocc_log_ratios)
     
+    # testing tuning value to improve model
+    tuning_val = 1.05
+    
     logger.info("Beginning semantic similarity and co-occurrence incorporation")
     for doc in tqdm(term_freqs.keys()):
         try:
@@ -77,8 +80,8 @@ def main():
                     for col in range(coocc_log_ratios.shape[0]):
 #                        if sem_sims[row, col] > .5:
 #                            similar_terms[term_idxs_reverse[col]] = sem_sims[row,col] * term_freqs[doc][term]
-                        if coocc_log_ratios[row, col] > 2 or coocc_log_ratios[row, col] < -2:
-                            coocc_terms[term_idxs_reverse[col]] = (coocc_log_ratios[row, col] / max_ratio) * term_freqs[doc][term]
+                        if coocc_log_ratios[row, col] > 3 or coocc_log_ratios[row, col] < -3:
+                            coocc_terms[term_idxs_reverse[col]] = ((coocc_log_ratios[row, col] * tuning_val) / max_ratio) * term_freqs[doc][term]
 #            for term in similar_terms.keys():
 #                if term in term_freqs[doc].keys():
 #                    term_freqs[doc][term] += similar_terms[term]
@@ -106,7 +109,9 @@ def main():
 #        
 ##############################################################
         
-    thresholds = [x * .005 for x in range(0,200)]
+    #thresholds = [x * .005 for x in range(0,200)]
+    
+    thresholds = [x * .005 for x in range(24,48)]
     
     predictions = {}
     precisions = []
@@ -143,11 +148,12 @@ def main():
         f1s.append(f1)   
             
     from sklearn.metrics import auc
-    from matplotlib import pyplot
+    
+    #from matplotlib import pyplot
     
     # AUC
     AUC = auc(recalls, precisions)
-    print("AUC: ", AUC)
+    #print("AUC: ", AUC)
     #pyplot.plot([0, 1], [0.5, 0.5], linestyle="--")
     #pyplot.plot(recalls, precisions, marker=".")
     #pyplot.savefig("../pr_curve.png")
@@ -158,7 +164,7 @@ def main():
     notify(msg)
     
     # Write evaluation metrics
-    with open("../data/informed_eval_metrics_1.csv", "w") as out:
+    with open("../data/informed_eval_metrics_2.csv", "w") as out:
         for index in range(len(thresholds)):
             out.write("".join([str(thresholds[index]), ","]))
             out.write("".join([str(precisions[index]), ","]))
