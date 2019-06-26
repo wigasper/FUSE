@@ -106,7 +106,7 @@ def main():
     uid_thresholds = {uid: 0 for uid in uids}
 
     # MP architecture
-    num_workers = 4
+    num_workers = 6
     # this is sort of ready to increase num writers but currently 
     # hacked together and num_writers should not be more than 1
     # unless dict (from completed queue) joining logic is added at the end
