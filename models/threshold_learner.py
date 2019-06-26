@@ -125,10 +125,7 @@ def main():
 
     writers = [Process(target=dict_writer, args=(write_queue, completed_queue, 
                 uids)) for _ in range(num_writers)]
-    #writer = Process(target= dict_writer, args=(write_queue, uids))
 
-    #writer.daemon = True
-    #writer.start()
     for writer in writers:
         writer.daemon = True
         writer.start()
@@ -170,12 +167,9 @@ def main():
     
     # Test it out
     predictions = {}
-    precisions = []
-    recalls = []
-    f1s = []
 
     # Predict
-    for doc in test_freqs.keys()
+    for doc in test_freqs.keys():
         predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
 
     # Get evaluation metrics
@@ -196,18 +190,9 @@ def main():
         precision = true_pos / (true_pos + false_pos)
         recall = true_pos / (true_pos + false_neg)
         f1 = (2 * precision * recall) / (precision + recall)
-    
-    precisions.append(precision)
-    recalls.append(recall)
-    f1s.append(f1) 
 
-    from sklearn.metrics import auc
+    from notify import notify     
+    notify(f"all done, precision: {precision}, recall: {recall}, f1: {f1}")  
 
-    AUC = auc(recalls, precisions)
-
-    from notify import notify
-    msg = "".join(["all done, auc: ", str(AUC), "\nmax F1: ", str(max(f1s))])
-    notify(msg)
-    
 if __name__ == "__main__":
     main()
