@@ -138,7 +138,7 @@ def main():
 
     counter = 0
     logging_interval = 100
-    for uid in uids[0:30]:
+    for uid in uids:
         if counter % logging_interval == 0:
             logger.info(f"{counter} UIDs added to queue")
         work_queue.put(uid)
