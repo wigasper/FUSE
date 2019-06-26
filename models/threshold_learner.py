@@ -53,8 +53,8 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
         write_queue.put((uid, max_thresh))
 
 # MP worker that writes results to the dict
-def dict_writer(write_queue, completed_queue, thresholds_dict):
-
+def dict_writer(write_queue, completed_queue, uids):
+    thresholds_dict = {uid: 0 for uid in uids}
     while True:
         result = write_queue.get()
         if result is None:
@@ -103,7 +103,7 @@ def main():
             term_freqs[doc][term] = term_freqs[doc][term] / max_freq
             
     # Dict to store the optimal thresholds for each UID
-    uid_thresholds = {uid: 0 for uid in uids}
+    #uid_thresholds = {uid: 0 for uid in uids}
 
     # MP architecture
     num_workers = 6
@@ -117,20 +117,24 @@ def main():
     completed_queue = Queue(maxsize=10)
 
     writers = [Process(target=dict_writer, args=(write_queue, completed_queue, 
-                uid_thresholds)) for _ in range(num_writers)]
+                uids)) for _ in range(num_writers)]
+    #writer = Process(target= dict_writer, args=(write_queue, uids))
 
+    #writer.daemon = True
+    #writer.start()
     for writer in writers:
-        #writer.daemon = True
+        writer.daemon = True
         writer.start()
 
-    workers = [Process(target=uid_worker, args=(work_queue, write_queue, deepcopy(term_freqs), deepcopy(solution))) for _ in range(num_workers)]
+    workers = [Process(target=uid_worker, args=(work_queue, write_queue, 
+                deepcopy(term_freqs), deepcopy(solution))) for _ in range(num_workers)]
 
     for worker in workers:
         worker.start()
 
     counter = 0
     logging_interval = 100
-    for uid in uids:
+    for uid in uids[0:30]:
         if counter % logging_interval == 0:
             logger.info(f"{counter} UIDs added to queue")
         work_queue.put(uid)
@@ -147,15 +151,14 @@ def main():
 
     for writer in writers:
         write_queue.put(None)
-    
+
     if write_queue.empty():
+        uid_thresholds = completed_queue.get()
         for writer in writers:
             writer.join()
 
-    uid_thresholds = completed_queue.get()
-
     with open ("../data/individual_term_thresholds.json", "w") as out:
         json.dump(uid_thresholds, out)
-
+    
 if __name__ == "__main__":
     main()
