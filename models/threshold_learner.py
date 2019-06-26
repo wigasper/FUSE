@@ -71,13 +71,20 @@ def main():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    # Load in term frequencies
+    # Load in term frequencies and partition
     with open("../data/term_freqs.json", "r") as handle:
         temp = json.load(handle)
-    # original file clearly needs to be rebuilt as dict
+
+    train = temp[0:10000]
+    test = temp[10000:]
+
     term_freqs = {}
-    for doc in temp:
+    for doc in train:
         term_freqs[doc[0]] = doc[1]
+    
+    test_freqs = {}
+    for doc in test:
+        test_freqs[doc[0]] = doc[1]
 
     # Load in solution values
     with open("../data/baseline_solution.json", "r") as handle:
@@ -157,8 +164,50 @@ def main():
         for writer in writers:
             writer.join()
 
+    # Save training results
     with open ("../data/individual_term_thresholds.json", "w") as out:
         json.dump(uid_thresholds, out)
+    
+    # Test it out
+    predictions = {}
+    precisions = []
+    recalls = []
+    f1s = []
+
+    # Predict
+    for doc in test_freqs.keys()
+        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
+
+    # Get evaluation metrics
+    true_pos = 0
+    false_pos = 0
+    false_neg = 0
+    
+    for pmid in predictions:
+        true_pos += len([pred for pred in predictions[pmid] if pred in solution[pmid]])
+        false_pos += len([pred for pred in predictions[pmid] if pred not in solution[pmid]])
+        false_neg += len([sol for sol in solution[pmid] if sol not in predictions[pmid]])
+
+    if true_pos == 0:
+        precision = 0
+        recall = 0
+        f1 = 0
+    else:
+        precision = true_pos / (true_pos + false_pos)
+        recall = true_pos / (true_pos + false_neg)
+        f1 = (2 * precision * recall) / (precision + recall)
+    
+    precisions.append(precision)
+    recalls.append(recall)
+    f1s.append(f1) 
+
+    from sklearn.metrics import auc
+
+    AUC = auc(recalls, precisions)
+
+    from notify import notify
+    msg = "".join(["all done, auc: ", str(AUC), "\nmax F1: ", str(max(f1s))])
+    notify(msg)
     
 if __name__ == "__main__":
     main()
