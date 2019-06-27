@@ -137,7 +137,7 @@ def matrix_adder(add_queue, completed_queue, dim, docs_per_matrix, num, logger):
 def main():
     # Get command line args
     parser = argparse.ArgumentParser()
-    parser.add_argument("-rc", "--recount", help="recount terms for each doc", type=str)
+    parser.add_argument("-rc", "--recount", help="recount terms for each doc", action="store_true")
     parser.add_argument("-n", "--num_docs", help="number of docs to build co-occurrence matrix with", type=int)
     args = parser.parse_args()
 
