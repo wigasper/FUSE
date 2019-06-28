@@ -185,7 +185,7 @@ def train(train_freqs, solution, logger):
 
     counter = 0
     logging_interval = 100
-    for uid in uids[0:100]:
+    for uid in uids:
         if counter % logging_interval == 0:
             logger.info(f"{counter} UIDs added to queue")
         work_queue.put(uid)
@@ -240,24 +240,33 @@ def main():
         with open(args.input, "r") as handle:
             temp = json.load(handle)
     else:
-        with open("../data/term_freqs.json", "r") as handle:
+        with open("../data/term_freqs_rev_0.json", "r") as handle:
             temp = json.load(handle)
 
-    partition = int(len(temp) * .8)
-    train_temp = temp[0:partition]
-    test_temp = temp[partition:]
+    docs_list = list(temp.keys())
+    partition = int(len(docs_list) * .8)
 
-    train_freqs = {}
-    for doc in train_temp:
-        train_freqs[doc[0]] = doc[1]
-    
-    test_freqs = {}
-    for doc in test_temp:
-        test_freqs[doc[0]] = doc[1]
+    train_docs = docs_list[0:partition]
+    test_docs = docs_list[partition:]
 
     # Load in solution values
-    with open("../data/baseline_solution.json", "r") as handle:
-        solution = json.load(handle)
+    solution = {}
+    docs_list = set(docs_list)
+    with open("../data/pm_bulk_doc_term_counts.csv", "r") as handle:
+        for line in handle:
+            line = line.strip("\n").split(",")
+            if line[0] in docs_list:
+                solution[line[0]] = line[1:]
+
+    train_freqs = {}
+    for doc in train_docs:
+        if doc in solution.keys():
+            train_freqs[doc] = temp[doc]
+
+    test_freqs = {}
+    for doc in test_docs:
+        if doc in solution.keys():
+            test_freqs[doc] = temp[doc]
 
     if args.train:
         train(train_freqs, solution, logger)
