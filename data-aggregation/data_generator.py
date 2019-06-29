@@ -1,9 +1,12 @@
 import os
 import re
+import time
 import json
 import argparse
 import traceback
 import logging
+
+from tqdm import tqdm
 
 def build_feature_dict(edge_list, logger):
     term_freqs = {}
@@ -14,7 +17,7 @@ def build_feature_dict(edge_list, logger):
     for edge in edge_list:
         need_counts_for.append(edge[1])
     need_counts_for = set(need_counts_for)
-    with open("../data/pm_bulk_doc_term_counts.csv", "r") as handle:
+    with open("../data/pm_doc_term_counts.csv", "r") as handle:
         for line in handle:
             line = line.strip("\n").split(",")
             if line[0] in need_counts_for:
@@ -77,6 +80,66 @@ def build_edge_list(file_list, logger):
 
     return edges
 
+def count_doc_terms(doc_list, logger):
+    doc_terms = {}
+    doc_pmid = ""
+    term_ids = []
+
+    # Compile regexes
+    pm_article_start = re.compile(r"\s*<PubmedArticle>")
+    pm_article_stop = re.compile(r"\s*</PubmedArticle>")
+    pmid = re.compile(r"\s*<PMID.*>(\d*)</PMID>")
+    mesh_list_start = re.compile(r"\s*<MeshHeadingList>")
+    mesh_list_stop = re.compile(r"\s*</MeshHeadingList>")
+    mesh_term_id = re.compile(r'\s*<DescriptorName UI="(D\d+)".*>')
+
+    logger.info("Starting doc/term counting")
+    for doc in tqdm(doc_list):
+        try:
+            with open(f"../pubmed_bulk/{doc}", "r") as handle:
+                start_doc_count = len(doc_terms.keys())
+                start_time = time.perf_counter()
+
+                line = handle.readline()
+                while line:
+                    if pm_article_start.search(line):
+                        if doc_pmid:
+                            doc_terms[doc_pmid] = term_ids
+                            doc_pmid = ""
+                            term_ids = []
+                        while not pm_article_stop.search(line):
+                            if not doc_pmid and pmid.search(line):
+                                doc_pmid = pmid.search(line).group(1)
+                            if mesh_list_start.search(line):
+                                while not mesh_list_stop.search(line):
+                                    mesh_match = mesh_term_id.search(line)
+                                    if mesh_match and mesh_match.group(1):
+                                        term_ids.append(mesh_match.group(1))
+                                    line = handle.readline()
+                            line = handle.readline()
+                    line = handle.readline()
+                doc_terms[doc_pmid] = term_ids
+
+                # Get count for log
+                docs_counted = len(doc_terms.keys()) - start_doc_count
+                # Get elapsed time and truncate for log
+                elapsed_time = int((time.perf_counter() - start_time) * 10) / 10.0
+                logger.info(f"{doc} parsing completed - terms extracted for {docs_counted} documents in {elapsed_time} seconds")
+                
+        except Exception as e:
+            trace = traceback.format_exc()
+            logger.error(repr(e))
+            logger.critical(trace)
+
+    logger.info("Stopping doc/term counting")
+
+    with open("../data/pm_doc_term_counts.csv", "w") as out:
+        for doc in doc_terms:
+            out.write("".join([doc, ","]))
+            out.write(",".join(doc_terms[doc]))
+            out.write("\n")
+
+
 def main():
     # Get command line args
     parser = argparse.ArgumentParser()
@@ -91,6 +154,9 @@ def main():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+    docs = os.listdir("../pubmed_bulk")
+    count_doc_terms(docs, logger)
+    
     xmls_to_parse = os.listdir(args.input)
 #    xmls_to_parse = os.listdir("../pmc_xmls")
 
