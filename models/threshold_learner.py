@@ -104,22 +104,12 @@ def learn_default_threshold(term_freqs, solution):
     return thresholds[f1s.index(max(f1s))]
 
 def predict(test_freqs, solution):
-    # Get default threshold value, in case training data is missing 
-    # a class entirely or threshold value is too high (learn this - what is too high???)
-    default_thresh = learn_default_threshold(test_freqs, solution)
-
     uid_thresholds = {}
     # Load training results
     with open("../data/individual_term_thresholds.csv", "r") as handle:
         for line in handle:
             line = line.strip("\n").split(",")
-            if line[1] == 0: # or is greater than max?
-                line[1] == default_thresh
             uid_thresholds[line[0]] = float(line[1])
-    
-    for term in uid_thresholds:
-        if uid_thresholds[term] ==  0:
-            uid_thresholds[term] = .09
 
     # Test it out
     predictions = {}
