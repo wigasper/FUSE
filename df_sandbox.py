@@ -576,12 +576,17 @@ ypred = list(np.round(ypred))
 
 ##################### rf - f1 - testing with subset of terms
 
-term_to_test = "D056128"
-
 import json
 import numpy as np
 import time
 
+subset = []
+# load in subset terms list
+with open("./data/subset_terms_list", "r") as handle:
+    for line in handle:
+        subset.append(line.strip("\n"))
+subset = set(subset)
+        
 # Load in term frequencies
 with open("./data/term_freqs_rev_0.json", "r") as handle:
     temp = json.load(handle)
@@ -591,7 +596,8 @@ uids = []
 with open("./data/mesh_data.tab", "r") as handle:
     for line in handle:
         line = line.strip("\n").split("\t")
-        uids.append(line[0])
+        if line[0] in subset:
+            uids.append(line[0])
         
 docs_list = list(temp.keys())
 partition = int(len(docs_list) * .8)
@@ -605,8 +611,8 @@ docs_list = set(docs_list)
 with open("./data/pm_doc_term_counts.csv", "r") as handle:
     for line in handle:
         line = line.strip("\n").split(",")
-        if line[0] in docs_list:
-            solution[line[0]] = line[1:]
+        if line[0] in docs_list:            
+            solution[line[0]] = [term for term in line[1:] if term in subset]
 
 train_docs = [doc for doc in train_docs if doc in solution.keys()]
 test_docs = [doc for doc in test_docs if doc in solution.keys()]
@@ -618,94 +624,99 @@ for doc in train_docs:
 test_freqs = {}
 for doc in test_docs:
     test_freqs[doc] = temp[doc]
-start = time.perf_counter()
-y = []
-for doc in train_docs:
-    if term_to_test in solution[doc]:
-        y.append(1)
-    else:
-        y.append(0)
 
-#y = np.array(y)
 
-x_0 = []
-x_1 = []
-for doc in train_docs:
-    row = []
-    for uid in uids:
-        if uid in train_freqs[doc].keys():
-            row.append(train_freqs[doc][uid])
-        else:
-            row.append(0)
-    row.append(y[train_docs.index(doc)])
-    if row[-1] == 0:
-        x_0.append(row)
-    else:
-        x_1.append(row)
-
-x_0 = np.array(x_0)
-x_0 = x_0[0:20000]
-
-x_1 = np.array(x_1)
-
+terms_to_test = test[0:10]
 from sklearn.utils import resample
-
-x_1 = resample(x_1, replace=True, n_samples=int(len(x_0) * .66), random_state=42)
-
-x = np.vstack((x_0, x_1))
-
-del(x_1)
-del(x_0)
-
-y = x[:,-1]
-x = x[:,:-1]
-
 from sklearn.ensemble import RandomForestClassifier
-clf = RandomForestClassifier(verbose=1, random_state=42, n_estimators=100)
+from notify import notify
 
-clf.fit(x, y)
-print("elapsed: " + str(time.perf_counter() - start))
-test_x = []
-for doc in test_freqs.keys():
-    row = []
-    for uid in uids:
-        if uid in test_freqs[doc].keys():
-            row.append(test_freqs[doc][uid])
+for term_to_test in terms_to_test:
+    start = time.perf_counter()
+    y = []
+    for doc in train_docs:
+        if term_to_test in solution[doc]:
+            y.append(1)
         else:
-            row.append(0)
-    test_x.append(row)
+            y.append(0)
+    
+    y = np.array(y)
+    
+    x_0 = []
+    x_1 = []
+    for doc in train_docs:
+        row = []
+        for uid in uids:
+            if uid in train_freqs[doc].keys():
+                row.append(train_freqs[doc][uid])
+            else:
+                row.append(0)
+        row.append(y[train_docs.index(doc)])
+        if row[-1] == 0:
+            x_0.append(row)
+        else:
+            x_1.append(row)
+    
+    x_0 = np.array(x_0)
+    x_0 = x_0[0:20000]
+    
+    x_1 = np.array(x_1)
+    
+    x_1 = resample(x_1, replace=True, n_samples=int(len(x_0) * .66), random_state=42)
+    
+    x = np.vstack((x_0, x_1))
+    
+    del(x_1)
+    del(x_0)
+    
+    y = x[:,-1]
+    x = x[:,:-1]
 
-test_x = np.array(test_x)
-
-test_y = []
-for doc in test_freqs.keys():
-    if term_to_test in solution[doc]:
-        test_y.append(1)
-    else:
-        test_y.append(0)
-        
-test_y = np.array(test_y)
-
-predictions = clf.predict(test_x)
-
-clf.score(test_x, test_y)
-
-true_pos = 0
-false_pos = 0
-false_neg = 0
-true_neg = 0
-
-for idx in range(len(test_y)):
-    if predictions[idx] == 1 and test_y[idx] == 1:
-        true_pos += 1
-    if predictions[idx] == 0 and test_y[idx] == 1:
-        false_neg += 1
-    if predictions[idx] == 1 and test_y[idx] == 0:
-        false_pos += 1
-    if predictions[idx] == 0 and test_y[idx] == 0:
-        true_neg += 1
-
-precision = true_pos / (true_pos + false_pos)
-recall = true_pos / (true_pos + false_neg)
-accurracy = (true_pos + true_neg) / (true_pos + true_neg + false_pos + false_neg)
-f1 = (2 * precision * recall) / (precision + recall)
+    clf = RandomForestClassifier(verbose=0, random_state=42, n_estimators=100)
+    
+    clf.fit(x, y)
+    print("elapsed: " + str(time.perf_counter() - start))
+    test_x = []
+    for doc in test_freqs.keys():
+        row = []
+        for uid in uids:
+            if uid in test_freqs[doc].keys():
+                row.append(test_freqs[doc][uid])
+            else:
+                row.append(0)
+        test_x.append(row)
+    
+    test_x = np.array(test_x)
+    
+    test_y = []
+    for doc in test_freqs.keys():
+        if term_to_test in solution[doc]:
+            test_y.append(1)
+        else:
+            test_y.append(0)
+            
+    test_y = np.array(test_y)
+    
+    predictions = clf.predict(test_x)
+    
+    clf.score(test_x, test_y)
+    
+    true_pos = 0
+    false_pos = 0
+    false_neg = 0
+    true_neg = 0
+    
+    for idx in range(len(test_y)):
+        if predictions[idx] == 1 and test_y[idx] == 1:
+            true_pos += 1
+        if predictions[idx] == 0 and test_y[idx] == 1:
+            false_neg += 1
+        if predictions[idx] == 1 and test_y[idx] == 0:
+            false_pos += 1
+        if predictions[idx] == 0 and test_y[idx] == 0:
+            true_neg += 1
+    
+    precision = true_pos / (true_pos + false_pos)
+    recall = true_pos / (true_pos + false_neg)
+    accurracy = (true_pos + true_neg) / (true_pos + true_neg + false_pos + false_neg)
+    f1 = (2 * precision * recall) / (precision + recall)
