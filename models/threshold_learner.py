@@ -116,8 +116,8 @@ def predict(test_freqs, solution):
             
     # Predict
     for doc in test_freqs.keys():
-        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
-
+#        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
+	predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .02]
     # Get evaluation metrics
     true_pos = 0
     false_pos = 0
@@ -242,7 +242,7 @@ def main():
     # Load in solution values
     solution = {}
     docs_list = set(docs_list)
-    with open("../data/pm_bulk_doc_term_counts.csv", "r") as handle:
+    with open("../data/pm_doc_term_counts.csv", "r") as handle:
         for line in handle:
             line = line.strip("\n").split(",")
             if line[0] in docs_list:
