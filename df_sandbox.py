@@ -626,7 +626,7 @@ for doc in test_docs:
     test_freqs[doc] = temp[doc]
 
 
-terms_to_test = test[0:10]
+terms_to_test = [term[0] for term in test]
 from sklearn.utils import resample
 from sklearn.ensemble import RandomForestClassifier
 from notify import notify
@@ -720,3 +720,4 @@ for term_to_test in terms_to_test:
     recall = true_pos / (true_pos + false_neg)
     accurracy = (true_pos + true_neg) / (true_pos + true_neg + false_pos + false_neg)
     f1 = (2 * precision * recall) / (precision + recall)
+    notify("term: " + term_to_test + " f1: " + str(f1))
