@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import math
 import json
 import random
 import argparse
@@ -51,7 +52,7 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
     out = {}
     doc_count = 0
     print("Selecting samples from each threshold until maxed")
-    thresholds = [x * .2 for x in range(0,5)]
+    thresholds = [x * .1 for x in range(0,10)]
     for thresh in tqdm(thresholds):
         #thresh = thresh + .2
         for doc in term_freqs.keys():
@@ -215,7 +216,7 @@ def main():
     max_count = 0
     for term in term_counts.keys():
         if term in term_subset:
-            term_ranks[term] = term_counts[term]
+            term_ranks[term] = math.log(term_counts[term])
             if term_ranks[term] > max_count:
                 max_count = term_ranks[term]
     
