@@ -66,7 +66,7 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
                     avg = sum_tot / term_count
                 if avg > 0 and thresh <= avg < (thresh + .2):
                     out[doc] = term_freqs[doc]
-            doc_count += 1
+                    doc_count += 1
     logger.info(f"Maxed out with {len(out)} keys")
     for doc in out.keys():
         total_count = 0
