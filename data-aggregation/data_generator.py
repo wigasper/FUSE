@@ -5,10 +5,12 @@ import json
 import argparse
 import traceback
 import logging
+from random import shuffle
 
 from tqdm import tqdm
 
-def build_feature_dict(edge_list, logger):
+def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
+
     term_freqs = {}
     doc_terms = {}
     
@@ -24,27 +26,50 @@ def build_feature_dict(edge_list, logger):
                 doc_terms[line[0]] = line[1:]
     
     term_freqs = {edge[0]: {} for edge in edge_list}
-    
+    #term_freqs = {}
+
+    # build term freqs
+    #count = 0
+    #while count < len(term_freqs):
     for edge in edge_list:
+        #if edge[0] not in term_freqs.keys():
+        #    term_freqs[edge[0]] = {}
         try:
             for term in doc_terms[edge[1]]:
-                if term and term in term_freqs[edge[0]].keys():
+                if term and term in term_freqs[edge[0]].keys() and term in term_subset:
                     term_freqs[edge[0]][term] += 1
-                elif term:
+                elif term and term in term_subset:
                     term_freqs[edge[0]][term] = 1
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(repr(e))
             logger.critical(trace)
-    
-    for doc in term_freqs.keys():
+
+    # go through term freqs and select samples
+    # maybe swtich to sorting here if needed
+    out = {}
+    doc_count = 0
+    for thresh in range(0, 1, .2):
+        #thresh = thresh + .2
+        for doc in term_freqs.keys():
+            if doc_count < num:
+                sum_tot = 0
+                term_count = 0
+                for term in term_freqs[doc].keys():
+                    term_count += term_freqs[doc][term]
+                    sum_tot += term_ranks[term] * term_count
+                avg = sum_tot / term_count
+                if thresh <= avg < (thresh + .2):
+                    out[doc] = term_freqs[doc]
+
+    for doc in out.keys():
         total_count = 0
-        for term in term_freqs[doc].keys():
-            total_count += term_freqs[doc][term]
-        for term in term_freqs[doc].keys():
-            term_freqs[doc][term] = term_freqs[doc][term] / total_count
-    
-    return term_freqs
+        for term in out[doc].keys():
+            total_count += out[doc][term]
+        for term in out[doc].keys():
+            out[doc][term] = out[doc][term] / total_count
+
+    return out
     
 def build_edge_list(file_list, logger):
     article_pmid = re.compile(r'<front>.*<article-id pub-id-type="pmid">(\d+)</article-id>.*</front>')
@@ -143,7 +168,11 @@ def count_doc_terms(doc_list, logger):
 def main():
     # Get command line args
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", help="A directory, can be relative to cd, containing XMLs to be parsed", type=str)
+    parser.add_argument("-c", "--count", help="Count term occurrences from corpus", action="store_true")
+    parser.add_argument("-i", "--input", help="A directory, can be relative to cwd, containing XMLs to be parsed", type=str)
+    parser.add_argument("-n", "--number", help="The number of samples to generate", type=int)
+    #parser.add_argument("-m", "--minimum", help="The minimum number of times to get each sample", type=int)
+    #parser.add_argument("-s", "--subset", help="Subset to only count common terms from subset list", type=str, default="../data/subset_terms_list")
     args = parser.parse_args()
     
     # Set up logging
@@ -154,23 +183,65 @@ def main():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+    # Get docs list
     docs = os.listdir("../pubmed_bulk")
-    count_doc_terms(docs, logger)
+
+    # Count terms in documents
+    if args.count:
+        count_doc_terms(docs, logger)
+
+    # Set up term subset and rankings
+    # Rank by dividing occurrences by max to give a value between
+    # 0 and 1 - allowing to choose samples with more infrequent terms
+    term_subset = []
+    with open("../data/subset_terms_list", "r") as handle:
+        for line in handle:
+            line = line.strip("\n")
+            term_subset.append(line)
+    term_subset = set(term_subset)
+
+    with open("../data/pm_bulk_term_counts.json", "r") as handle:
+        term_counts = json.load(handle)
+    
+    term_ranks = {}
+    max_count = 0
+    for term in term_counts.keys():
+        if term in term_subset:
+            term_ranks[term] = term_counts[term]
+            if term_ranks[term] > max_count:
+                max_count = term_ranks[term]
+    
+    for term in term_ranks.keys():
+        term_ranks[term] = term_ranks[term] / max_count
     
     xmls_to_parse = os.listdir(args.input)
-#    xmls_to_parse = os.listdir("../pmc_xmls")
+    shuffle(xmls_to_parse, random=.42)
 
+    # did 200k samples previously
     xmls_to_parse = ["/".join([args.input, file_name]) for file_name in xmls_to_parse if file_name.split(".")[-1] == "nxml"]
-#    xmls_to_parse = ["/".join(["../pmc_xmls", file_name]) for file_name in xmls_to_parse if file_name.split(".")[-1] == "nxml"]
-    edge_list = build_edge_list(xmls_to_parse[0:200000], logger)
+    num_to_parse = args.number * 5
+
+    try:
+        edge_list = build_edge_list(xmls_to_parse[0:num_to_parse], logger)
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(repr(e))
+        logger.critical(trace)
 
     with open("../data/edge_list.csv", "w") as out:
         for edge in edge_list:
             out.write("".join([edge[0], ",", edge[1], "\n"]))
+    #if args.minimum:
+    try:
+        term_freqs = build_feature_dict(edge_list, term_ranks, term_subset, args.number, logger)
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(repr(e))
+        logger.critical(trace)
+    #else:
+    #    term_freqs = build_feature_dict(edge_list, 0, logger)
 
-    term_freqs = build_feature_dict(edge_list, logger)
-
-    with open("../data/term_freqs_rev_0.json", "w") as out:
+    with open("../data/term_freqs_rev_1.json", "w") as out:
         json.dump(term_freqs, out)
 
 if __name__ == "__main__":
