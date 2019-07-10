@@ -31,7 +31,8 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
     # build term freqs
     #count = 0
     #while count < len(term_freqs):
-    for edge in edge_list:
+    print("Building term_freqs...")
+    for edge in tqdm(edge_list):
         #if edge[0] not in term_freqs.keys():
         #    term_freqs[edge[0]] = {}
         try:
@@ -49,7 +50,8 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
     # maybe swtich to sorting here if needed
     out = {}
     doc_count = 0
-    for thresh in range(0, 1, .2):
+    print("Selecting samples from each threshold until maxed")
+    for thresh in tqdm(range(0, 1, .2)):
         #thresh = thresh + .2
         for doc in term_freqs.keys():
             if doc_count < num:
@@ -61,7 +63,8 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
                 avg = sum_tot / term_count
                 if thresh <= avg < (thresh + .2):
                     out[doc] = term_freqs[doc]
-
+            doc_count += 1
+    logger.info(f"Maxed out with {len(out)} keys")
     for doc in out.keys():
         total_count = 0
         for term in out[doc].keys():
@@ -77,7 +80,8 @@ def build_edge_list(file_list, logger):
     ref_pmid = re.compile(r'<pub-id pub-id-type="pmid">(\d+)</pub-id>')
     
     edges = []
-    from tqdm import tqdm
+    print("Building edge list")
+    logger.info("Starting edge list build")
     for xml_file in tqdm(file_list):
         try:
             #if xml_file.split(".")[-1] == "nxml":
