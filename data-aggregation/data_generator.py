@@ -176,6 +176,7 @@ def main():
     # Get command line args
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--count", help="Count term occurrences from corpus", action="store_true")
+    parser.add_argument("-e", "--edges", help="Edge list path - will build list if no arg provided", type=str)
     parser.add_argument("-i", "--input", help="A directory, can be relative to cwd, containing XMLs to be parsed", type=str)
     parser.add_argument("-n", "--number", help="The number of samples to generate", type=int)
     #parser.add_argument("-m", "--minimum", help="The minimum number of times to get each sample", type=int)
@@ -231,16 +232,27 @@ def main():
     xmls_to_parse = ["/".join([args.input, file_name]) for file_name in xmls_to_parse if file_name.split(".")[-1] == "nxml"]
     num_to_parse = args.number * 5
 
-    try:
-        edge_list = build_edge_list(xmls_to_parse[0:num_to_parse], logger)
-    except Exception as e:
-        trace = traceback.format_exc()
-        logger.error(repr(e))
-        logger.critical(trace)
+    #####################
+    # Because of htis logic need to put something here in case that
+    # it runs out of samples before num is reached
+    if args.edges:
+        edge_list = []
+        with open(args.edges, "r") as handle:
+            for line in handle:
+                line = line.strip("\n").split(",")
+                edge_list.append([line[0], line[1]])
+    else:
+        try:
+            edge_list = build_edge_list(xmls_to_parse[0:num_to_parse], logger)
+        except Exception as e:
+            trace = traceback.format_exc()
+            logger.error(repr(e))
+            logger.critical(trace)
 
-    with open("../data/edge_list.csv", "w") as out:
-        for edge in edge_list:
-            out.write("".join([edge[0], ",", edge[1], "\n"]))
+        with open("../data/edge_list.csv", "w") as out:
+            for edge in edge_list:
+                out.write("".join([edge[0], ",", edge[1], "\n"]))
+
     #if args.minimum:
     try:
         term_freqs = build_feature_dict(edge_list, term_ranks, term_subset, args.number, logger)
