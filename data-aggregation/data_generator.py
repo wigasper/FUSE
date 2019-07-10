@@ -2,10 +2,10 @@ import os
 import re
 import time
 import json
+import random
 import argparse
 import traceback
 import logging
-from random import shuffle
 
 from tqdm import tqdm
 
@@ -219,7 +219,10 @@ def main():
         term_ranks[term] = term_ranks[term] / max_count
     
     xmls_to_parse = os.listdir(args.input)
-    shuffle(xmls_to_parse, random=.42)
+
+    # Shuffle the list
+    random.seed(42)
+    random.shuffle(xmls_to_parse)
 
     # did 200k samples previously
     xmls_to_parse = ["/".join([args.input, file_name]) for file_name in xmls_to_parse if file_name.split(".")[-1] == "nxml"]
