@@ -51,7 +51,8 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
     out = {}
     doc_count = 0
     print("Selecting samples from each threshold until maxed")
-    for thresh in tqdm(range(0, 1, .2)):
+    thresholds = [x * .2 for x in range(0,5)]
+    for thresh in tqdm(thresholds):
         #thresh = thresh + .2
         for doc in term_freqs.keys():
             if doc_count < num:
