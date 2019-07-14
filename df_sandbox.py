@@ -1,3 +1,4 @@
+"""
 #!/usr/bin/env python3
 
 import json
@@ -571,7 +572,7 @@ from sklearn import metrics
 print(metrics.accuracy_score(y_test, np.round(ypred)))
 
 ypred = list(np.round(ypred))
-
+"""
     
 
 ##################### rf - f1 - testing with subset of terms
@@ -588,7 +589,7 @@ with open("./data/subset_terms_list", "r") as handle:
 subset = set(subset)
         
 # Load in term frequencies
-with open("./data/term_freqs_rev_0.json", "r") as handle:
+with open("./data/term_freqs_rev_1.json", "r") as handle:
     temp = json.load(handle)
  
 uids = []
@@ -625,8 +626,8 @@ test_freqs = {}
 for doc in test_docs:
     test_freqs[doc] = temp[doc]
 
+terms_to_test = list(subset)
 
-terms_to_test = [term[0] for term in test]
 from sklearn.utils import resample
 from sklearn.ensemble import RandomForestClassifier
 from notify import notify
