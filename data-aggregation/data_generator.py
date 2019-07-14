@@ -69,8 +69,8 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
                 term_count = 0
                 avg = 0
                 for term in term_freqs[doc].keys():
-                    term_count += term_freqs[doc][term]
-                    sum_tot += term_ranks[term] * term_count
+                    term_count += 1
+                    sum_tot += term_ranks[term] * term_freqs[doc][term]
                 if term_count > 0:
                     avg = sum_tot / term_count
                 if avg > 0 and thresh <= avg < (thresh + .1):
