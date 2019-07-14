@@ -47,14 +47,22 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
             logger.error(repr(e))
             logger.critical(trace)
 
+    print(f"{len(term_freqs)} docs added to term_freqs")
+
+    for doc in term_freqs.keys():
+        total_count = 0
+        for term in term_freqs[doc].keys():
+            total_count += term_freqs[doc][term]
+        for term in term_freqs[doc].keys():
+            term_freqs[doc][term] = term_freqs[doc][term] / total_count
+
     # go through term freqs and select samples
     # maybe swtich to sorting here if needed
     out = {}
     doc_count = 0
-    print("Selecting samples from each threshold until maxed")
+    print("Selecting samples from each threshold until maxed...")
     thresholds = [x * .1 for x in range(0,10)]
     for thresh in tqdm(thresholds):
-        #thresh = thresh + .2
         for doc in term_freqs.keys():
             if doc_count < num:
                 sum_tot = 0
@@ -65,16 +73,10 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
                     sum_tot += term_ranks[term] * term_count
                 if term_count > 0:
                     avg = sum_tot / term_count
-                if avg > 0 and thresh <= avg < (thresh + .2):
+                if avg > 0 and thresh <= avg < (thresh + .1):
                     out[doc] = term_freqs[doc]
                     doc_count += 1
     logger.info(f"Maxed out with {len(out)} keys")
-    for doc in out.keys():
-        total_count = 0
-        for term in out[doc].keys():
-            total_count += out[doc][term]
-        for term in out[doc].keys():
-            out[doc][term] = out[doc][term] / total_count
 
     return out
     
