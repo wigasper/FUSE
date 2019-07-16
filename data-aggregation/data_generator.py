@@ -10,7 +10,7 @@ import logging
 
 from tqdm import tqdm
 
-def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
+def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
 
     term_freqs = {}
     doc_terms = {}
@@ -38,9 +38,9 @@ def build_feature_dict(edge_list, term_ranks, term_subset, num, logger):
         #    term_freqs[edge[0]] = {}
         try:
             for term in doc_terms[edge[1]]:
-                if term and term in term_freqs[edge[0]].keys() and term in term_subset:
+                if term and term in term_freqs[edge[0]].keys() and term in term_list:
                     term_freqs[edge[0]][term] += 1
-                elif term and term in term_subset:
+                elif term and term in term_list:
                     term_freqs[edge[0]][term] = 1
         except Exception as e:
             trace = traceback.format_exc()
@@ -180,10 +180,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--count", help="Count term occurrences from corpus", action="store_true")
     parser.add_argument("-e", "--edges", help="Edge list path - will build list if no arg provided", type=str)
-    parser.add_argument("-i", "--input", help="A directory, can be relative to cwd, containing XMLs to be parsed", type=str)
+    parser.add_argument("-i", "--input", help="A directory, can be relative to cwd, containing XMLs to build an edge list from", type=str)
     parser.add_argument("-n", "--number", help="The number of samples to generate", type=int)
     #parser.add_argument("-m", "--minimum", help="The minimum number of times to get each sample", type=int)
-    #parser.add_argument("-s", "--subset", help="Subset to only count common terms from subset list", type=str, default="../data/subset_terms_list")
+    parser.add_argument("-s", "--subset", help="A list of MeSH term IDs to include in the data set (allows for subsetting)." \
+                        "Uses all MeSH terms by default.", type=str)
     args = parser.parse_args()
     
     # Set up logging
@@ -204,12 +205,18 @@ def main():
     # Set up term subset and rankings
     # Rank by dividing occurrences by max to give a value between
     # 0 and 1 - allowing to choose samples with more infrequent terms
-    term_subset = []
-    with open("../data/subset_terms_list", "r") as handle:
-        for line in handle:
-            line = line.strip("\n")
-            term_subset.append(line)
-    term_subset = set(term_subset)
+    term_list = []
+    if args.subset:
+        with open(args.subset, "r") as handle:
+            for line in handle:
+                line = line.strip("\n")
+                term_list.append(line)
+    else:
+        with open("../data/mesh_data.tab", "r") as handle:
+            for line in handle:
+                line = line.strip("\n").split("\t")
+                term_list.append(line[0])
+    term_list = set(term_list)
 
     with open("../data/pm_bulk_term_counts.json", "r") as handle:
         term_counts = json.load(handle)
@@ -217,23 +224,13 @@ def main():
     term_ranks = {}
     max_count = 0
     for term in term_counts.keys():
-        if term in term_subset:
+        if term in term_list and term_counts[term] > 0:
             term_ranks[term] = math.log(term_counts[term])
             if term_ranks[term] > max_count:
                 max_count = term_ranks[term]
     
     for term in term_ranks.keys():
         term_ranks[term] = term_ranks[term] / max_count
-    
-    xmls_to_parse = os.listdir(args.input)
-
-    # Shuffle the list
-    random.seed(42)
-    random.shuffle(xmls_to_parse)
-
-    # did 200k samples previously
-    xmls_to_parse = ["/".join([args.input, file_name]) for file_name in xmls_to_parse if file_name.split(".")[-1] == "nxml"]
-    num_to_parse = args.number * 5
 
     #####################
     # Because of htis logic need to put something here in case that
@@ -246,6 +243,16 @@ def main():
                 edge_list.append([line[0], line[1]])
     else:
         try:
+            # TODO: add something here to raise an exception if no args.input
+            xmls_to_parse = os.listdir(args.input)
+
+            # Shuffle the list
+            random.seed(42)
+            random.shuffle(xmls_to_parse)
+
+            xmls_to_parse = ["/".join([args.input, file_name]) for file_name in xmls_to_parse if file_name.split(".")[-1] == "nxml"]
+            num_to_parse = args.number * 5
+
             edge_list = build_edge_list(xmls_to_parse[0:num_to_parse], logger)
         except Exception as e:
             trace = traceback.format_exc()
@@ -258,7 +265,7 @@ def main():
 
     #if args.minimum:
     try:
-        term_freqs = build_feature_dict(edge_list, term_ranks, term_subset, args.number, logger)
+        term_freqs = build_feature_dict(edge_list, term_ranks, term_list, args.number, logger)
     except Exception as e:
         trace = traceback.format_exc()
         logger.error(repr(e))
@@ -266,7 +273,7 @@ def main():
     #else:
     #    term_freqs = build_feature_dict(edge_list, 0, logger)
 
-    with open("../data/term_freqs_rev_1.json", "w") as out:
+    with open("../data/term_freqs_rev_2_all_terms.json", "w") as out:
         json.dump(term_freqs, out)
 
 if __name__ == "__main__":
