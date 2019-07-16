@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 import json
-import time
 import logging
 import argparse
 from multiprocessing import Process, Queue
 from copy import deepcopy
 
+from tqdm import tqdm
+
 # MP worker that calculates the optimately discrimination threshold
 # for a single UID
 def uid_worker(work_queue, write_queue, term_freqs, solution):
     # optimize this
-    thresholds = [x * .005 for x in range(0,200)]
+    thresholds = [x * .001 for x in range(0,200)]
 
     while True:
         uid = work_queue.get()
@@ -65,7 +66,7 @@ def dict_writer(write_queue, completed_queue, uids):
         thresholds_dict[result[0]] = result[1]
 
 def learn_default_threshold(term_freqs, solution):
-    thresholds = [x * .005 for x in range(0,200)]
+    thresholds = [x * .001 for x in range(0,1000)]
     
     predictions = {}
     precisions = []
@@ -73,7 +74,8 @@ def learn_default_threshold(term_freqs, solution):
     f1s = []
     
     # Run the model for all thresholds
-    for thresh in thresholds:
+    print("Learning default threshold...")
+    for thresh in tqdm(thresholds):
         # Predict
         for doc in term_freqs.keys():
             predictions[doc] = [key for key, val in term_freqs[doc].items() if val > thresh]
@@ -117,7 +119,7 @@ def predict(test_freqs, solution):
     # Predict
     for doc in test_freqs.keys():
 #        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
-        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .02]
+        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .017]
     # Get evaluation metrics
     true_pos = 0
     false_pos = 0
@@ -173,9 +175,11 @@ def train(train_freqs, solution, logger):
     for worker in workers:
         worker.start()
 
+    print("Workers and writer started, adding UIDs to queue...")
+    print("UID progress:")
     counter = 0
     logging_interval = 100
-    for uid in uids:
+    for uid in tqdm(uids):
         if counter % logging_interval == 0:
             logger.info(f"{counter} UIDs added to queue")
         work_queue.put(uid)
@@ -200,8 +204,11 @@ def train(train_freqs, solution, logger):
 
     default_thresh = learn_default_threshold(train_freqs, solution)
 
+    # this has been sort of arbitrarily determined
+    threshold_ceiling = .19
+    
     for uid in uid_thresholds:
-        if uid_thresholds[uid] == 0: # need to learn ceiling here too!!!
+        if uid_thresholds[uid] == 0 or uid_thresholds[uid] >= threshold_ceiling:
             uid_thresholds[uid] = default_thresh
 
     # Save training results
@@ -230,7 +237,7 @@ def main():
         with open(args.input, "r") as handle:
             temp = json.load(handle)
     else:
-        with open("../data/term_freqs_rev_0.json", "r") as handle:
+        with open("../data/term_freqs_rev_1.json", "r") as handle:
             temp = json.load(handle)
 
     docs_list = list(temp.keys())
@@ -246,7 +253,9 @@ def main():
         for line in handle:
             line = line.strip("\n").split(",")
             if line[0] in docs_list:
-                solution[line[0]] = line[1:]
+                terms = [term for term in line[1:] if term]
+                if terms:
+                    solution[line[0]] = terms
 
     train_freqs = {}
     for doc in train_docs:
@@ -258,6 +267,8 @@ def main():
         if doc in solution.keys():
             test_freqs[doc] = temp[doc]
 
+    del(temp)
+    
     if args.train:
         train(train_freqs, solution, logger)
     
