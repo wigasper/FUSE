@@ -70,7 +70,7 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
             max_thresh = 0
 
         write_queue.put((uid, max_thresh))
-
+t
 # MP worker that writes results to the dict
 def dict_writer(write_queue, completed_queue, uids):
     thresholds_dict = {uid: 0 for uid in uids}
@@ -81,7 +81,8 @@ def dict_writer(write_queue, completed_queue, uids):
             break
         thresholds_dict[result[0]] = result[1]
 
-def default_thresh_df(thresh, term_freqs, solution):
+# Default threshold function
+def get_f1(thresh, term_freqs, solution):
     # Predict
     predictions = {}
     for doc in term_freqs.keys():
@@ -106,24 +107,43 @@ def default_thresh_df(thresh, term_freqs, solution):
         recall = true_pos / (true_pos + false_neg)
         f1 = (2 * precision * recall) / (precision + recall)
     
-    return 1.0 - f1
+    return f1
 
 def learn_default_threshold(term_freqs, solution):
-    next_thresh = .2
-    gamma = 0.01
-    precision = 0.00001
-    max_iterations = 10000
-
-    for it in range(max_iterations):
-        thresh = next_thresh
-        next_thresh = thresh - gamma * default_thresh_df(thresh, term_freqs, solution)
-        step = next_thresh - thresh
-        if abs(step) <= precision:
-            break
-        if it == max_iterations - 1:
-            print("Hit max_iterations, param adjustment?")
+    curr_thresh = 0.0
+    step_val = 0.001
     
-    return next_thresh
+    curr_thresh_f1 = get_f1(curr_thresh, term_freqs, solution)
+    next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
+    
+    while next_thresh_f1 > curr_thresh_f1:
+        curr_thresh += step_val
+        curr_thresh_f1 = get_f1(curr_thresh, term_freqs, solution)
+        next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
+    
+    return curr_thresh
+#    next_thresh = .05
+#    gamma = 0.001
+#    precision = 0.00001
+#    max_iterations = 10000
+#    
+#    steps = []
+#    
+#    for it in range(max_iterations):
+#        thresh = next_thresh
+#        print(f"thresh: {thresh}")
+#        next_thresh = thresh - gamma * default_thresh_df(thresh, term_freqs, solution)
+#        print(f"next_thresh: {next_thresh}")
+#        step = next_thresh - thresh
+#        steps.append(step)
+#        print(f"step: {abs(step)}")
+#        if abs(step) <= precision:
+#            break
+#        if it == max_iterations - 1:
+#            print("Hit max_iterations, param adjustment?")
+    
+#    print(next_thresh)
+#    return next_thresh
     """
     thresholds = [x * .001 for x in range(0,1000)]
     
@@ -288,7 +308,7 @@ def main():
     # Set up logging
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
-    handler = logging.FileHandler("../logs/learn_individ_thresholds_mp.log")
+    handler = logging.FileHandler("../logs/threshold_learner.log")
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -310,12 +330,14 @@ def main():
         for line in handle:
             line = line.strip("\n").split(",")
             if line[0] in docs_list:
-                # Ensure data quality
+                # Ensure data quality - only use samples indexed with MeSH terms
                 terms = [term for term in line[1:] if term]
                 if terms:
                     solution[line[0]] = terms
 
     # Build training/test data, ensure good solution data is available
+    # Solution data is not always available because documents may not be
+    # indexed - even though obviously some of their references have been indexed
     train_freqs = {}
     for doc in train_docs:
         if doc in solution.keys():
