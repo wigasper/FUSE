@@ -67,6 +67,7 @@ def dict_writer(write_queue, completed_queue, uids):
 
 def default_thresh_df(thresh, term_freqs, solution):
     # Predict
+    predictions = {}
     for doc in term_freqs.keys():
         predictions[doc] = [key for key, val in term_freqs[doc].items() if val > thresh]
         
