@@ -9,9 +9,14 @@ from tqdm import tqdm
 
 # MP worker that calculates the optimately discrimination threshold
 # for a single UID
+# Currently need a minimum number of 50 samples with the UID
 def uid_worker(work_queue, write_queue, term_freqs, solution):
     # optimize this
     thresholds = [x * .001 for x in range(0,200)]
+
+    # Minimum number of positive responses required for a UID
+    # in order to learn a discrimination threshold
+    min_num_samples = 50
 
     while True:
         uid = work_queue.get()
@@ -20,39 +25,50 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
         precisions = []
         recalls = []
         f1s = []
-        for thresh in thresholds:
-            predictions = {doc: 0 for doc in term_freqs.keys()}
-            
-            for doc in term_freqs.keys():
-                if uid in term_freqs[doc].keys() and term_freqs[doc][uid] > thresh:
-                    predictions[doc] = 1
 
-            true_pos = 0
-            false_pos = 0
-            false_neg = 0
-            
-            for pmid in predictions.keys():
-                if predictions[pmid] == 1 and uid in solution[pmid]:
-                    true_pos += 1
-                if predictions[pmid] == 1 and uid not in solution[pmid]:
-                    false_pos += 1
-                if predictions[pmid] == 0 and uid in solution[pmid]:
-                    false_neg += 1
-            
-            if true_pos == 0:
-                precision = 0
-                recall = 0
-                f1 = 0
-            else:
-                precision = true_pos / (true_pos + false_pos)
-                recall = true_pos / (true_pos + false_neg)
-                f1 = (2 * precision * recall) / (precision + recall)
+        count = 0
+        for doc in term_freqs.keys():
+            if uid in term_freqs[doc].keys():
+                count += 1
         
-            precisions.append(precision)
-            recalls.append(recall)
-            f1s.append(f1)
+        if count >= min_num_samples:
+            for thresh in thresholds:
+                predictions = {doc: 0 for doc in term_freqs.keys()}
+                
+                for doc in term_freqs.keys():
+                    if uid in term_freqs[doc].keys() and term_freqs[doc][uid] > thresh:
+                        predictions[doc] = 1
 
-        max_thresh = thresholds[f1s.index(max(f1s))]
+                true_pos = 0
+                false_pos = 0
+                false_neg = 0
+                
+                for pmid in predictions.keys():
+                    if predictions[pmid] == 1 and uid in solution[pmid]:
+                        true_pos += 1
+                    if predictions[pmid] == 1 and uid not in solution[pmid]:
+                        false_pos += 1
+                    if predictions[pmid] == 0 and uid in solution[pmid]:
+                        false_neg += 1
+                
+                if true_pos == 0:
+                    precision = 0
+                    recall = 0
+                    f1 = 0
+                else:
+                    precision = true_pos / (true_pos + false_pos)
+                    recall = true_pos / (true_pos + false_neg)
+                    f1 = (2 * precision * recall) / (precision + recall)
+            
+                precisions.append(precision)
+                recalls.append(recall)
+                f1s.append(f1)
+
+            max_thresh = thresholds[f1s.index(max(f1s))]
+        
+        else:
+            max_thresh = 0
+
         write_queue.put((uid, max_thresh))
 
 # MP worker that writes results to the dict
@@ -98,12 +114,14 @@ def learn_default_threshold(term_freqs, solution):
     precision = 0.00001
     max_iterations = 10000
 
-    for _ in range(max_iterations):
+    for it in range(max_iterations):
         thresh = next_thresh
         next_thresh = thresh - gamma * default_thresh_df(thresh, term_freqs, solution)
         step = next_thresh - thresh
         if abs(step) <= precision:
             break
+        if it == max_iterations - 1:
+            print("Hit max_iterations, param adjustment?")
     
     return next_thresh
     """
