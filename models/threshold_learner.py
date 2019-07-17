@@ -65,7 +65,47 @@ def dict_writer(write_queue, completed_queue, uids):
             break
         thresholds_dict[result[0]] = result[1]
 
+def default_thresh_df(thresh, term_freqs, solution):
+    # Predict
+    for doc in term_freqs.keys():
+        predictions[doc] = [key for key, val in term_freqs[doc].items() if val > thresh]
+        
+    # Get evaluation metrics
+    true_pos = 0
+    false_pos = 0
+    false_neg = 0
+    
+    for pmid in predictions:
+        true_pos += len([pred for pred in predictions[pmid] if pred in solution[pmid]])
+        false_pos += len([pred for pred in predictions[pmid] if pred not in solution[pmid]])
+        false_neg += len([sol for sol in solution[pmid] if sol not in predictions[pmid]])
+
+    if true_pos == 0:
+        precision = 0
+        recall = 0
+        f1 = 0
+    else:
+        precision = true_pos / (true_pos + false_pos)
+        recall = true_pos / (true_pos + false_neg)
+        f1 = (2 * precision * recall) / (precision + recall)
+    
+    return 1.0 - f1
+
 def learn_default_threshold(term_freqs, solution):
+    next_thresh = .2
+    gamma = 0.01
+    precision = 0.00001
+    max_iterations = 10000
+
+    for _ in range(max_iterations):
+        thresh = next_thresh
+        next_thresh = thresh - gamma * default_thresh_df(thresh, term_freqs, solution)
+        step = next_thresh - thresh
+        if abs(step) <= precision:
+            break
+    
+    return next_thresh
+    """
     thresholds = [x * .001 for x in range(0,1000)]
     
     predictions = {}
@@ -75,6 +115,7 @@ def learn_default_threshold(term_freqs, solution):
     
     # Run the model for all thresholds
     print("Learning default threshold...")
+    
     for thresh in tqdm(thresholds):
         # Predict
         for doc in term_freqs.keys():
@@ -104,7 +145,8 @@ def learn_default_threshold(term_freqs, solution):
         f1s.append(f1)
     
     return thresholds[f1s.index(max(f1s))]
-
+    """
+    pass
 def predict(test_freqs, solution):
     uid_thresholds = {}
     # Load training results
@@ -221,7 +263,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--train", help="train model", action="store_true")
     parser.add_argument("-p", "--predict", help="predict", action="store_true")
-    parser.add_argument("-i", "--input", help="input file path with term freqs for each doc", type=str)
+    parser.add_argument("-i", "--input", help="input file path with term freqs for each doc", type=str, default="../data/term_freqs_rev_2_all_terms.json")
     args = parser.parse_args()
 
     # Set up logging
@@ -233,12 +275,8 @@ def main():
     logger.addHandler(handler)
 
     # Load in term frequencies and partition
-    if args.input:
-        with open(args.input, "r") as handle:
-            temp = json.load(handle)
-    else:
-        with open("../data/term_freqs_rev_1.json", "r") as handle:
-            temp = json.load(handle)
+    with open(args.input, "r") as handle:
+        temp = json.load(handle)
 
     docs_list = list(temp.keys())
     partition = int(len(docs_list) * .8)
@@ -253,10 +291,12 @@ def main():
         for line in handle:
             line = line.strip("\n").split(",")
             if line[0] in docs_list:
+                # Ensure data quality
                 terms = [term for term in line[1:] if term]
                 if terms:
                     solution[line[0]] = terms
 
+    # Build training/test data, ensure good solution data is available
     train_freqs = {}
     for doc in train_docs:
         if doc in solution.keys():
@@ -267,6 +307,7 @@ def main():
         if doc in solution.keys():
             test_freqs[doc] = temp[doc]
 
+    # Free up memory
     del(temp)
     
     if args.train:
