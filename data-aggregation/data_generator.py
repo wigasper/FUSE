@@ -23,10 +23,11 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
     with open("../data/pm_doc_term_counts.csv", "r") as handle:
         for line in handle:
             line = line.strip("\n").split(",")
-            if line[0] in need_counts_for:
+            line = [item for item in line if item]
+            if len(line) > 1 and line[0] in need_counts_for:
                 doc_terms[line[0]] = line[1:]
     
-    term_freqs = {edge[0]: {} for edge in edge_list}
+    term_freqs = {edge[0]: {} for edge in edge_list if edge[0] in doc_terms.keys()}
     #term_freqs = {}
 
     # build term freqs
