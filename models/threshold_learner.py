@@ -11,9 +11,6 @@ from tqdm import tqdm
 # for a single UID
 # Currently need a minimum number of 50 samples with the UID
 def uid_worker(work_queue, write_queue, term_freqs, solution):
-    # optimize this
-    thresholds = [x * .001 for x in range(0,200)]
-
     # Minimum number of positive responses required for a UID
     # in order to learn a discrimination threshold
     min_num_samples = 50
@@ -32,13 +29,13 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
             curr_thresh = 0.0
             step_val = 0.001        
     
-            curr_thresh_f1 = get_f1(curr_thresh, term_freqs, solution)
-            next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
+            curr_thresh_f1 = get_f1_worker(curr_thresh, uid, term_freqs, solution)
+            next_thresh_f1 = get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution)
     
             while next_thresh_f1 > curr_thresh_f1 and curr_thresh < .2:
                 curr_thresh += step_val
-                curr_thresh_f1 = get_f1(curr_thresh, term_freqs, solution)
-                next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
+                curr_thresh_f1 = get_f1_worker(curr_thresh, uid, term_freqs, solution)
+                next_thresh_f1 = get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution)
             
             max_thresh = curr_thresh
 
@@ -47,7 +44,7 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
 
         write_queue.put((uid, max_thresh))
 
-def get_f1_worker(thresh, term_freqs, solution):
+def get_f1_worker(thresh, uid, term_freqs, solution):
     predictions = {doc: 0 for doc in term_freqs.keys()}
     
     for doc in term_freqs.keys():
@@ -142,8 +139,8 @@ def predict(test_freqs, solution):
             
     # Predict
     for doc in test_freqs.keys():
-#        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
-        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .0151]
+        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
+#        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .0151]
     # Get evaluation metrics
     true_pos = 0
     false_pos = 0
