@@ -32,6 +32,19 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
                 count += 1
         
         if count >= min_num_samples:
+            curr_thresh = 0.0
+            step_val = 0.001        
+    
+            curr_thresh_f1 = get_f1(curr_thresh, term_freqs, solution)
+            next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
+    
+            while next_thresh_f1 > curr_thresh_f1 and curr_thresh < .2:
+                curr_thresh += step_val
+                curr_thresh_f1 = get_f1(curr_thresh, term_freqs, solution)
+                next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
+            
+            max_thresh = curr_thresh
+            """
             for thresh in thresholds:
                 predictions = {doc: 0 for doc in term_freqs.keys()}
                 
@@ -65,12 +78,42 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
                 f1s.append(f1)
 
             max_thresh = thresholds[f1s.index(max(f1s))]
-        
+        """
         else:
             max_thresh = 0
 
         write_queue.put((uid, max_thresh))
-t
+
+def get_f1_worker(thresh, term_freqs, solution):
+    predictions = {doc: 0 for doc in term_freqs.keys()}
+    
+    for doc in term_freqs.keys():
+        if uid in term_freqs[doc].keys() and term_freqs[doc][uid] > thresh:
+            predictions[doc] = 1
+
+    true_pos = 0
+    false_pos = 0
+    false_neg = 0
+    
+    for pmid in predictions.keys():
+        if predictions[pmid] == 1 and uid in solution[pmid]:
+            true_pos += 1
+        if predictions[pmid] == 1 and uid not in solution[pmid]:
+            false_pos += 1
+        if predictions[pmid] == 0 and uid in solution[pmid]:
+            false_neg += 1
+    
+    if true_pos == 0:
+        precision = 0
+        recall = 0
+        f1 = 0
+    else:
+        precision = true_pos / (true_pos + false_pos)
+        recall = true_pos / (true_pos + false_neg)
+        f1 = (2 * precision * recall) / (precision + recall)
+
+    return f1
+
 # MP worker that writes results to the dict
 def dict_writer(write_queue, completed_queue, uids):
     thresholds_dict = {uid: 0 for uid in uids}
@@ -120,72 +163,9 @@ def learn_default_threshold(term_freqs, solution):
         curr_thresh += step_val
         curr_thresh_f1 = get_f1(curr_thresh, term_freqs, solution)
         next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
-    
+        
     return curr_thresh
-#    next_thresh = .05
-#    gamma = 0.001
-#    precision = 0.00001
-#    max_iterations = 10000
-#    
-#    steps = []
-#    
-#    for it in range(max_iterations):
-#        thresh = next_thresh
-#        print(f"thresh: {thresh}")
-#        next_thresh = thresh - gamma * default_thresh_df(thresh, term_freqs, solution)
-#        print(f"next_thresh: {next_thresh}")
-#        step = next_thresh - thresh
-#        steps.append(step)
-#        print(f"step: {abs(step)}")
-#        if abs(step) <= precision:
-#            break
-#        if it == max_iterations - 1:
-#            print("Hit max_iterations, param adjustment?")
-    
-#    print(next_thresh)
-#    return next_thresh
-    """
-    thresholds = [x * .001 for x in range(0,1000)]
-    
-    predictions = {}
-    precisions = []
-    recalls = []
-    f1s = []
-    
-    # Run the model for all thresholds
-    print("Learning default threshold...")
-    
-    for thresh in tqdm(thresholds):
-        # Predict
-        for doc in term_freqs.keys():
-            predictions[doc] = [key for key, val in term_freqs[doc].items() if val > thresh]
-            
-        # Get evaluation metrics
-        true_pos = 0
-        false_pos = 0
-        false_neg = 0
-        
-        for pmid in predictions:
-            true_pos += len([pred for pred in predictions[pmid] if pred in solution[pmid]])
-            false_pos += len([pred for pred in predictions[pmid] if pred not in solution[pmid]])
-            false_neg += len([sol for sol in solution[pmid] if sol not in predictions[pmid]])
-    
-        if true_pos == 0:
-            precision = 0
-            recall = 0
-            f1 = 0
-        else:
-            precision = true_pos / (true_pos + false_pos)
-            recall = true_pos / (true_pos + false_neg)
-            f1 = (2 * precision * recall) / (precision + recall)
-        
-        precisions.append(precision)
-        recalls.append(recall)
-        f1s.append(f1)
-    
-    return thresholds[f1s.index(max(f1s))]
-    """
-    pass
+
 def predict(test_freqs, solution):
     uid_thresholds = {}
     # Load training results
@@ -200,7 +180,7 @@ def predict(test_freqs, solution):
     # Predict
     for doc in test_freqs.keys():
 #        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
-        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .017]
+        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .0151]
     # Get evaluation metrics
     true_pos = 0
     false_pos = 0
