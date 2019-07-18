@@ -22,9 +22,6 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
         uid = work_queue.get()
         if uid is None:
             break
-        precisions = []
-        recalls = []
-        f1s = []
 
         count = 0
         for doc in term_freqs.keys():
@@ -44,41 +41,7 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
                 next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
             
             max_thresh = curr_thresh
-            """
-            for thresh in thresholds:
-                predictions = {doc: 0 for doc in term_freqs.keys()}
-                
-                for doc in term_freqs.keys():
-                    if uid in term_freqs[doc].keys() and term_freqs[doc][uid] > thresh:
-                        predictions[doc] = 1
 
-                true_pos = 0
-                false_pos = 0
-                false_neg = 0
-                
-                for pmid in predictions.keys():
-                    if predictions[pmid] == 1 and uid in solution[pmid]:
-                        true_pos += 1
-                    if predictions[pmid] == 1 and uid not in solution[pmid]:
-                        false_pos += 1
-                    if predictions[pmid] == 0 and uid in solution[pmid]:
-                        false_neg += 1
-                
-                if true_pos == 0:
-                    precision = 0
-                    recall = 0
-                    f1 = 0
-                else:
-                    precision = true_pos / (true_pos + false_pos)
-                    recall = true_pos / (true_pos + false_neg)
-                    f1 = (2 * precision * recall) / (precision + recall)
-            
-                precisions.append(precision)
-                recalls.append(recall)
-                f1s.append(f1)
-
-            max_thresh = thresholds[f1s.index(max(f1s))]
-        """
         else:
             max_thresh = 0
 
