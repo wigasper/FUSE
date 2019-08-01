@@ -114,9 +114,6 @@ def main():
         thresh = 0.016
         
         predictions = {}
-        precisions = []
-        recalls = []
-        f1s = []
         
         # Predict
         for doc in term_freqs.keys():
