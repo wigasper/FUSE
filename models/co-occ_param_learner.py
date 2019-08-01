@@ -58,17 +58,6 @@ def main():
         if doc in solution.keys():
             term_freqs[doc] = temp[doc]
 
-    # Get max freq for docs with more than 10 terms applied to their citations
-    max_freq = 0
-    for doc in term_freqs:
-        for term in term_freqs[doc].keys():
-            if len(term_freqs[doc]) > 10 and term_freqs[doc][term] > max_freq:
-                max_freq = term_freqs[doc][term]
-    
-    # Divide values by max
-    for doc in term_freqs:
-        for term in term_freqs[doc].keys():
-            term_freqs[doc][term] = term_freqs[doc][term] / max_freq
     # Load term subset to count for
     term_subset = []
     with open("../data/subset_terms_list", "r") as handle:
@@ -78,8 +67,6 @@ def main():
     # Dict for array assembly and lookup
     term_idxs = {term_subset[idx]: idx for idx in range(len(term_subset))}
     term_idxs_reverse = {idx: term_subset[idx] for idx in range(len(term_subset))}
-    
-    #sem_sims = array_builder("../data/semantic_similarities_rev1.csv", term_idxs)
                 
     coocc_log_ratios = array_builder("../data/term_co-occ_log_likelihoods.csv", term_idxs)
     max_ratio = np.max(coocc_log_ratios)
@@ -90,7 +77,7 @@ def main():
     ratio_cutoffs = [7.5, 7.6, 7.7, 7.8, 7.9, 8.0]
 
     for ratio_cutoff in ratio_cutoffs:
-        logger.info("Beginning semantic similarity and co-occurrence incorporation")
+        logger.info(f"Beginning feature engineering with co-occurrence log likelihood ratios at cutoff {ratio_cutoff}")
         for doc in tqdm(term_freqs.keys()):
             try:
                 coocc_terms = {}
