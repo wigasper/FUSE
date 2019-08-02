@@ -5,15 +5,15 @@ import argparse
 from multiprocessing import Process, Queue
 from copy import deepcopy
 
+from notify import notify
 from tqdm import tqdm
 
 # MP worker that calculates the optimately discrimination threshold
 # for a single UID
-# Currently need a minimum number of 50 samples with the UID
-def uid_worker(work_queue, write_queue, term_freqs, solution):
+def uid_worker(work_queue, write_queue, term_freqs, solution, default_thresh):
     # Minimum number of positive responses required for a UID
     # in order to learn a discrimination threshold
-    min_num_samples = 50
+    min_num_samples = 8000
 
     while True:
         uid = work_queue.get()
@@ -27,20 +27,28 @@ def uid_worker(work_queue, write_queue, term_freqs, solution):
         
         if count >= min_num_samples:
             curr_thresh = 0.0
-            step_val = 0.001        
-    
-            curr_thresh_f1 = get_f1_worker(curr_thresh, uid, term_freqs, solution)
+            step_val = 0.001
+            
+            f1s = []
+            
+            f1s.append(get_f1_worker(curr_thresh, uid, term_freqs, solution))
+            f1s.append(get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution))
+            
+            curr_thresh += step_val
             next_thresh_f1 = get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution)
-    
-            while next_thresh_f1 > curr_thresh_f1 and curr_thresh < .2:
+            
+            while curr_thresh < .2 and not (next_thresh_f1 < f1s[-1] and next_thresh_f1 < f1s[-2] and f1s[-1] < f1s[-2]):
                 curr_thresh += step_val
-                curr_thresh_f1 = get_f1_worker(curr_thresh, uid, term_freqs, solution)
+                f1s.append(get_f1_worker(curr_thresh, uid, term_freqs, solution))
                 next_thresh_f1 = get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution)
             
-            max_thresh = curr_thresh
+            max_thresh = curr_thresh - step_val
+
+            if max_thresh > 0.185:
+                max_thresh = default_thresh
 
         else:
-            max_thresh = 0
+            max_thresh = default_thresh
 
         write_queue.put((uid, max_thresh))
 
@@ -115,16 +123,22 @@ def get_f1(thresh, term_freqs, solution):
 def learn_default_threshold(term_freqs, solution):
     curr_thresh = 0.0
     step_val = 0.001
+    ##
+    f1s = []
     
-    curr_thresh_f1 = get_f1(curr_thresh, term_freqs, solution)
+    f1s.append(get_f1(curr_thresh, term_freqs, solution))
+    f1s.append(get_f1(curr_thresh + step_val, term_freqs, solution))
+    
+    curr_thresh += step_val
     next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
     
-    while next_thresh_f1 > curr_thresh_f1:
+    while not (next_thresh_f1 < f1s[-1] and next_thresh_f1 < f1s[-2] and f1s[-1] < f1s[-2]):
         curr_thresh += step_val
-        curr_thresh_f1 = get_f1(curr_thresh, term_freqs, solution)
+        f1s.append(get_f1(curr_thresh, term_freqs, solution))
         next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
-        
-    return curr_thresh
+    
+    print(curr_thresh - step_val)
+    return curr_thresh - step_val
 
 def predict(test_freqs, solution):
     uid_thresholds = {}
@@ -140,7 +154,7 @@ def predict(test_freqs, solution):
     # Predict
     for doc in test_freqs.keys():
         predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
-#        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .0151]
+#        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .015]
     # Get evaluation metrics
     true_pos = 0
     false_pos = 0
@@ -160,7 +174,7 @@ def predict(test_freqs, solution):
         recall = true_pos / (true_pos + false_neg)
         f1 = (2 * precision * recall) / (precision + recall)
 
-    from notify import notify     
+###############################################################################   
     notify(f"all done, precision: {precision}, recall: {recall}, f1: {f1}")
 
     return predictions
@@ -172,6 +186,9 @@ def train(train_freqs, solution, logger):
         for line in handle:
             line = line.strip("\n").split("\t")
             uids.append(line[0])
+
+    default_thresh = learn_default_threshold(train_freqs, solution)
+    notify(f"default thresh learned: {default_thresh}")
 
     # MP architecture
     num_workers = 6
@@ -191,7 +208,7 @@ def train(train_freqs, solution, logger):
         writer.start()
 
     workers = [Process(target=uid_worker, args=(work_queue, write_queue, 
-                deepcopy(train_freqs), deepcopy(solution))) for _ in range(num_workers)]
+                deepcopy(train_freqs), deepcopy(solution), deepcopy(default_thresh))) for _ in range(num_workers)]
 
     for worker in workers:
         worker.start()
@@ -223,14 +240,12 @@ def train(train_freqs, solution, logger):
         for writer in writers:
             writer.join()
 
-    default_thresh = learn_default_threshold(train_freqs, solution)
-
     # this has been sort of arbitrarily determined
-    threshold_ceiling = .19
+#    threshold_ceiling = .19
     
-    for uid in uid_thresholds:
-        if uid_thresholds[uid] == 0 or uid_thresholds[uid] >= threshold_ceiling:
-            uid_thresholds[uid] = default_thresh
+#    for uid in uid_thresholds:
+#        if uid_thresholds[uid] == 0 or uid_thresholds[uid] >= threshold_ceiling:
+#            uid_thresholds[uid] = default_thresh
 
     # Save training results
     with open("../data/individual_term_thresholds.csv", "w") as out:
@@ -270,7 +285,7 @@ def main():
         for line in handle:
             line = line.strip("\n").split(",")
             if line[0] in docs_list:
-                # Ensure data quality - only use samples indexed with MeSH terms
+                # Only use samples indexed with MeSH terms
                 terms = [term for term in line[1:] if term]
                 if terms:
                     solution[line[0]] = terms
