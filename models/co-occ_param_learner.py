@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import json
 import logging
 import traceback
@@ -21,7 +22,7 @@ def main():
     # Set up logging
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
-    handler = logging.FileHandler("../logs/simple_informed_model.log")
+    handler = logging.FileHandler("../logs/co-occ_param_learner.log")
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -74,7 +75,9 @@ def main():
     # testing tuning value to improve model
     tuning_val = 1
 
-    ratio_cutoffs = [7.5, 7.6, 7.7, 7.8, 7.9, 8.0]
+    thresh = 0.016
+
+    ratio_cutoffs = [6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6]
 
     for ratio_cutoff in ratio_cutoffs:
         logger.info(f"Beginning feature engineering with co-occurrence log likelihood ratios at cutoff {ratio_cutoff}")
@@ -97,8 +100,6 @@ def main():
                 trace = traceback.format_exc()
                 logger.error(repr(e))
                 logger.critical(trace)
-        
-        thresh = 0.016
         
         predictions = {}
         
