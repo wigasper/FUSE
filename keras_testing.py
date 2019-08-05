@@ -23,12 +23,18 @@ with open("./data/mesh_data.tab", "r") as handle:
             uids.append(line[0])
 
 docs_list = list(temp.keys())
+partition = int(len(docs_list) * .8)
 
 train_docs = docs_list[0:3000]
+test_docs = docs_list[partition:partition + 3000]
 
 train_freqs = {}
 for doc in train_docs:
     train_freqs[doc] = temp[doc]
+
+test_freqs = {}
+for doc in test_docs:
+    test_freqs[doc] = temp[doc]
 
 # Load in solution values - only for the docs that we need
 # Change to set for quick lookup
@@ -41,6 +47,7 @@ with open("./data/pm_doc_term_counts.csv", "r") as handle:
             solution[line[0]] = [term for term in line[1:] if term in subset]
 
 train_docs = [doc for doc in train_docs if doc in solution.keys()]
+test_docs = [doc for doc in test_docs if doc in solution.keys()]
 
 x = []
 for doc in train_docs:
@@ -66,14 +73,39 @@ for doc in train_docs:
 
 y = np.array(y)
 
+x_test = []
+for doc in test_docs:
+    row = []
+    for uid in uids:
+        if uid in test_freqs[doc].keys():
+            row.append(test_freqs[doc][uid])
+        else:
+            row.append(0)
+    x_test.append(row)
+
+x_test = np.array(x_test)
+
+y_test = []
+for doc in test_docs:
+    row = []
+    for uid in uids:
+        if uid in solution[doc]:
+            row.append(1)
+        else:
+            row.append(0)
+    y_test.append(row)
+
+y_test = np.array(y_test)
+    
 print("model compilation")
 
 from keras.models import Model
-from keras.layers import Dense, Input, LSTM, Bidirectional, GlobalMaxPool1D, Dropout
+from keras.layers import Dense, Input, LSTM, Bidirectional, GlobalMaxPool1D, Dropout, Embedding
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 a = Input(shape=(7221,))
-b = Bidirectional(LSTM(50, return_sequences=True))(a)
+b = Embedding(7221, 256)(a)
+b = Bidirectional(LSTM(50, return_sequences=True))(b)
 b = GlobalMaxPool1D()(b)
 b = Dropout(0.1)(b)
 b = Dense(50, activation="relu")(b)
@@ -96,3 +128,12 @@ callbacks_list = [checkpoint, early]
 print("starting fit")
 
 model.fit(x, y, batch_size=batch_size, epochs=epochs, validation_split=0.1, callbacks=callbacks_list)
+
+model.load_weights(fp)
+
+y_pred = model.predict(x_test)
+
+"""
+for row in y_pred:
+    for col in row:
+"""
