@@ -31,12 +31,8 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
     #term_freqs = {}
 
     # build term freqs
-    #count = 0
-    #while count < len(term_freqs):
     print("Building term_freqs...")
     for edge in tqdm(edge_list):
-        #if edge[0] not in term_freqs.keys():
-        #    term_freqs[edge[0]] = {}
         try:
             for term in doc_terms[edge[1]]:
                 if term and term in term_freqs[edge[0]].keys() and term in term_list:
@@ -49,16 +45,16 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
             logger.critical(trace)
 
     print(f"{len(term_freqs)} docs added to term_freqs")
-
+    """
     for doc in term_freqs.keys():
         total_count = 0
         for term in term_freqs[doc].keys():
             total_count += term_freqs[doc][term]
         for term in term_freqs[doc].keys():
             term_freqs[doc][term] = term_freqs[doc][term] / total_count
-
+    
     # go through term freqs and select samples
-    # maybe swtich to sorting here if needed
+    # maybe switch to sorting here if needed
     out = {}
     doc_count = 0
     print("Selecting samples from each threshold until maxed...")
@@ -77,7 +73,15 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
                 if avg > 0 and thresh <= avg < (thresh + .1):
                     out[doc] = term_freqs[doc]
                     doc_count += 1
-    logger.info(f"Maxed out with {len(out)} keys")
+    logger.info(f"Selected {len(out)} keys from a pool of {len(term_freqs)}")
+    """
+    
+    out = {}
+    doc_count = 0
+    for doc in term_freqs.keys():
+        if doc_count < num:
+            out[doc] = term_freqs[doc]
+            doc_count += 1
 
     return out
     
@@ -274,7 +278,7 @@ def main():
     #else:
     #    term_freqs = build_feature_dict(edge_list, 0, logger)
 
-    with open("../data/term_freqs_rev_2_all_terms.json", "w") as out:
+    with open("../data/term_counts_raw.json", "w") as out:
         json.dump(term_freqs, out)
 
 if __name__ == "__main__":
