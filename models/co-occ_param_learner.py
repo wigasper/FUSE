@@ -54,11 +54,6 @@ def main():
                 if terms:
                     solution[line[0]] = terms
 
-    term_freqs = {}
-    for doc in train_docs:
-        if doc in solution.keys():
-            term_freqs[doc] = temp[doc]
-
     # Load term subset to count for
     term_subset = []
     with open("../data/subset_terms_list", "r") as handle:
@@ -80,6 +75,20 @@ def main():
     ratio_cutoffs = [6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6]
 
     for ratio_cutoff in ratio_cutoffs:
+        # Load in term frequencies
+        with open("../data/term_freqs_rev_2_all_terms.json", "r") as handle:
+            temp = json.load(handle)
+        
+        docs_list = list(temp.keys())
+        partition = int(len(docs_list) * .8)
+
+        train_docs = docs_list[0:partition]
+
+        term_freqs = {}
+        for doc in train_docs:
+            if doc in solution.keys():
+                term_freqs[doc] = temp[doc]
+
         logger.info(f"Beginning feature engineering with co-occurrence log likelihood ratios at cutoff {ratio_cutoff}")
         for doc in tqdm(term_freqs.keys()):
             try:
