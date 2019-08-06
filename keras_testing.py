@@ -114,10 +114,10 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 a = Input(shape=(7221, 1,))
 #b = Embedding(7221, 256)(a)
-b = Bidirectional(LSTM(50, return_sequences=True))(a)
+b = Bidirectional(LSTM(256, return_sequences=True))(a)
 b = GlobalMaxPool1D()(b)
 b = Dropout(0.1)(b)
-b = Dense(50, activation="relu")(b)
+b = Dense(256, activation="relu")(b)
 b = Dropout(0.1)(b)
 b = Dense(7221, activation="sigmoid")(b)
 model = Model(inputs=a, outputs=b)
