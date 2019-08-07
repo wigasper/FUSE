@@ -31,7 +31,7 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
     #term_freqs = {}
 
     # build term freqs
-    print("Building term_freqs...")
+    print(f"Building term_freqs... Pre-build: {len(term_freqs)} docs")
     for edge in tqdm(edge_list):
         try:
             for term in doc_terms[edge[1]]:
@@ -45,7 +45,7 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
             logger.critical(trace)
 
     print(f"{len(term_freqs)} docs added to term_freqs")
-    """
+    
     for doc in term_freqs.keys():
         total_count = 0
         for term in term_freqs[doc].keys():
@@ -82,12 +82,12 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
         if doc_count < num:
             out[doc] = term_freqs[doc]
             doc_count += 1
-
+    """
     return out
     
 def build_edge_list(file_list, logger):
-    article_pmid = re.compile(r'<front>.*<article-id pub-id-type="pmid">(\d+)</article-id>.*</front>')
-    refs_list = re.compile(r'<back>.*<ref-list>(.*)</ref-list>.*</back>')
+    article_pmid = re.compile(r'<front>[\s\S]*<article-id pub-id-type="pmid">(\d+)</article-id>[\s\S]*</front>')
+    refs_list = re.compile(r'<back>[\s\S]*<ref-list([\s\S]*)</ref-list>[\s\S]*</back>')
     ref_pmid = re.compile(r'<pub-id pub-id-type="pmid">(\d+)</pub-id>')
     
     edges = []
@@ -250,6 +250,7 @@ def main():
         try:
             # TODO: add something here to raise an exception if no args.input
             xmls_to_parse = os.listdir(args.input)
+            xmls_to_parse = list(dict.fromkeys(xmls_to_parse))
 
             # Shuffle the list
             random.seed(42)
@@ -264,7 +265,7 @@ def main():
             logger.error(repr(e))
             logger.critical(trace)
 
-        with open("../data/edge_list.csv", "w") as out:
+        with open("../data/edge_list_more_edges.csv", "w") as out:
             for edge in edge_list:
                 out.write("".join([edge[0], ",", edge[1], "\n"]))
 
@@ -278,7 +279,7 @@ def main():
     #else:
     #    term_freqs = build_feature_dict(edge_list, 0, logger)
 
-    with open("../data/term_counts_raw.json", "w") as out:
+    with open("../data/term_freqs_rev_3_all_terms.json", "w") as out:
         json.dump(term_freqs, out)
 
 if __name__ == "__main__":
