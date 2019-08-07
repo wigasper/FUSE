@@ -59,8 +59,8 @@ for doc in train_docs:
     row = []
     for uid in uids:
         if uid in train_freqs[doc].keys():
-#            row.append(train_freqs[doc][uid])
-            row.append(int(train_freqs[doc][uid] * 100))
+            row.append(train_freqs[doc][uid])
+#            row.append(int(train_freqs[doc][uid] * 100))
         else:
             row.append(0)
     x.append(row)
@@ -87,8 +87,8 @@ for doc in test_docs:
     row = []
     for uid in uids:
         if uid in test_freqs[doc].keys():
-#            row.append(test_freqs[doc][uid])
-            row.append(int(test_freqs[doc][uid] * 100))
+            row.append(test_freqs[doc][uid])
+#            row.append(int(test_freqs[doc][uid] * 100))
         else:
             row.append(0)
     x_test.append(row)
@@ -121,16 +121,16 @@ a = Input(shape=(7221,))
 #b = Bidirectional(LSTM(128, return_sequences=True))(b)
 #b = GlobalMaxPool1D()(b)
 #b = Dropout(0.1)(b)
-b = Dense(128, activation="relu")(a)
+b = Dense(512, activation="relu")(a)
 b = Dropout(0.1)(b)
 b = Dense(7221, activation="sigmoid")(b)
 model = Model(inputs=a, outputs=b)
 model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
 
-batch_size = 32
-epochs = 2
+batch_size = 16
+epochs = 60
 
-fp = "weights.vanilla.hdf5"
+fp = "weights.vanilla.2.hdf5"
 
 checkpoint = ModelCheckpoint(fp, monitor="val_loss", verbose=1, save_best_only=True, mode="min")
 
@@ -145,12 +145,36 @@ model.fit(x, y, batch_size=batch_size, epochs=epochs, validation_split=0.1, call
 model.load_weights(fp)
 ##
 y_pred = model.predict(x_test)
-#y_pred_rnd = np.round(y_pred)
+y_pred_rnd = np.round(y_pred)
 
-"""
-for row in y_pred:
-    for col in row:
-"""
+true_pos = 0
+false_pos = 0
+false_neg = 0
+true_neg = 0
+
+from tqdm import tqdm
+
+for r_idx, row in tqdm(enumerate(y_pred_rnd)):
+    for c_idx, col in enumerate(row):
+        if y_pred_rnd[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 1:
+            true_pos += 1
+        if y_pred_rnd[r_idx][c_idx] == 0 and y_test[r_idx][c_idx] == 1:
+            false_neg += 1
+        if y_pred_rnd[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 0:
+            false_pos +=1
+        if y_pred_rnd[r_idx][c_idx] == 0 and y_test[r_idx][c_idx] == 0:
+            true_neg += 1
+            
+if true_pos > 0:
+    precision = true_pos / (true_pos + false_pos)
+    recall = true_pos / (true_pos + false_neg)
+    accurracy = (true_pos + true_neg) / (true_pos + true_neg + false_pos + false_neg)
+    f1 = (2 * precision * recall) / (precision + recall)
+else:
+    f1 = 0
+    
+from notify import notify
+notify(f"f1: {f1}")
 #t1 = y_pred[0]
 #col = 0
 #max_c = 0
