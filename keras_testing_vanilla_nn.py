@@ -117,11 +117,11 @@ from keras.layers import Dense, Input, LSTM, Bidirectional, GlobalMaxPool1D, Dro
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 a = Input(shape=(7221,))
-b = Embedding(7221, 256)(a)
-b = Bidirectional(LSTM(128, return_sequences=True))(b)
-b = GlobalMaxPool1D()(b)
-b = Dropout(0.1)(b)
-b = Dense(128, activation="relu")(b)
+#b = Embedding(7221, 256)(a)
+#b = Bidirectional(LSTM(128, return_sequences=True))(b)
+#b = GlobalMaxPool1D()(b)
+#b = Dropout(0.1)(b)
+b = Dense(128, activation="relu")(a)
 b = Dropout(0.1)(b)
 b = Dense(7221, activation="sigmoid")(b)
 model = Model(inputs=a, outputs=b)
@@ -130,7 +130,7 @@ model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"]
 batch_size = 32
 epochs = 2
 
-fp = "weights.hdf5"
+fp = "weights.vanilla.hdf5"
 
 checkpoint = ModelCheckpoint(fp, monitor="val_loss", verbose=1, save_best_only=True, mode="min")
 
