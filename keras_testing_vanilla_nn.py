@@ -1,5 +1,13 @@
 import json
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler("nn_params_results.log")
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 print("working on input")
 subset = []
@@ -25,8 +33,8 @@ with open("./data/mesh_data.tab", "r") as handle:
             uids.append(line[0])
 
 docs_list = list(temp.keys())
-docs_list = docs_list[:200000]
-partition = int(len(docs_list) * .8)
+docs_list = docs_list[:180000]
+partition = int(len(docs_list) * .9)
 
 train_docs = docs_list[0:partition]
 test_docs = docs_list[partition:]
@@ -113,7 +121,7 @@ y_test = np.array(y_test)
 print("model compilation")
 
 from keras.models import Model
-from keras.layers import Dense, Input, LSTM, Bidirectional, GlobalMaxPool1D, Dropout, Embedding
+from keras.layers import Dense, Input, Dropout
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 a = Input(shape=(7221,))
@@ -123,14 +131,18 @@ a = Input(shape=(7221,))
 #b = Dropout(0.1)(b)
 b = Dense(512, activation="relu")(a)
 b = Dropout(0.1)(b)
+b = Dense(512, activation="relu")(a)
+b = Dropout(0.1)(b)
 b = Dense(7221, activation="sigmoid")(b)
 model = Model(inputs=a, outputs=b)
 model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
 
+model.summary(print_fn=logger.info)
+
 batch_size = 16
 epochs = 60
 
-fp = "weights.vanilla.2.hdf5"
+fp = "weights.vanilla.4.hdf5"
 
 checkpoint = ModelCheckpoint(fp, monitor="val_loss", verbose=1, save_best_only=True, mode="min")
 
@@ -145,7 +157,7 @@ model.fit(x, y, batch_size=batch_size, epochs=epochs, validation_split=0.1, call
 model.load_weights(fp)
 ##
 y_pred = model.predict(x_test)
-y_pred_rnd = np.round(y_pred)
+y_pred = np.round(y_pred)
 
 true_pos = 0
 false_pos = 0
@@ -154,15 +166,15 @@ true_neg = 0
 
 from tqdm import tqdm
 
-for r_idx, row in tqdm(enumerate(y_pred_rnd)):
+for r_idx, row in tqdm(enumerate(y_pred)):
     for c_idx, col in enumerate(row):
-        if y_pred_rnd[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 1:
+        if y_pred[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 1:
             true_pos += 1
-        if y_pred_rnd[r_idx][c_idx] == 0 and y_test[r_idx][c_idx] == 1:
+        if y_pred[r_idx][c_idx] == 0 and y_test[r_idx][c_idx] == 1:
             false_neg += 1
-        if y_pred_rnd[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 0:
+        if y_pred[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 0:
             false_pos +=1
-        if y_pred_rnd[r_idx][c_idx] == 0 and y_test[r_idx][c_idx] == 0:
+        if y_pred[r_idx][c_idx] == 0 and y_test[r_idx][c_idx] == 0:
             true_neg += 1
             
 if true_pos > 0:
@@ -172,7 +184,8 @@ if true_pos > 0:
     f1 = (2 * precision * recall) / (precision + recall)
 else:
     f1 = 0
-    
+
+logger.info(f"F1: {f1}, trained on: {len(train_docs)} samples, weights saved as: {fp}, batch_size: {batch_size}, epochs: {epochs}")
 from notify import notify
 notify(f"f1: {f1}")
 #t1 = y_pred[0]
