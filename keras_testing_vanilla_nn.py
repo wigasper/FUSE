@@ -120,29 +120,29 @@ y_test = np.array(y_test)
     
 print("model compilation")
 
+import json
 from keras.models import Model
 from keras.layers import Dense, Input, Dropout
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
+model_code = "vanilla.6.cos"
+
 a = Input(shape=(7221,))
-#b = Embedding(7221, 256)(a)
-#b = Bidirectional(LSTM(128, return_sequences=True))(b)
-#b = GlobalMaxPool1D()(b)
-#b = Dropout(0.1)(b)
-b = Dense(512, activation="relu")(a)
-b = Dropout(0.1)(b)
-b = Dense(512, activation="relu")(a)
+b = Dense(3000, activation="relu")(a)
 b = Dropout(0.1)(b)
 b = Dense(7221, activation="sigmoid")(b)
 model = Model(inputs=a, outputs=b)
 model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+
+with open(f"{model_code}.config.json", "w") as out:
+    json.dump(model.get_config(), out)
 
 model.summary(print_fn=logger.info)
 
 batch_size = 16
 epochs = 60
 
-fp = "weights.vanilla.4.hdf5"
+fp = f"weights.{model_code}.hdf5"
 
 checkpoint = ModelCheckpoint(fp, monitor="val_loss", verbose=1, save_best_only=True, mode="min")
 
@@ -185,7 +185,9 @@ if true_pos > 0:
 else:
     f1 = 0
 
-logger.info(f"F1: {f1}, trained on: {len(train_docs)} samples, weights saved as: {fp}, batch_size: {batch_size}, epochs: {epochs}")
+logger.info(f"F1: {f1}, trained on: {len(train_docs)} samples, weights saved as: {fp}") 
+logger.info(f"batch_size: {batch_size}, epochs: {epochs}")
+
 from notify import notify
 notify(f"f1: {f1}")
 #t1 = y_pred[0]
