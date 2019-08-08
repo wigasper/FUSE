@@ -13,7 +13,7 @@ subset = set(subset)
 #with open("./data/term_freqs_rev_2_all_terms.json", "r") as handle:
 #    temp = json.load(handle)
  
-with open("./data/term_freqs_rev_2_all_terms.json", "r") as handle:
+with open("./data/term_freqs_rev_3_all_terms.json", "r") as handle:
     temp = json.load(handle)
 
 # Get UIDs in a list - for use in building arrays
@@ -25,7 +25,7 @@ with open("./data/mesh_data.tab", "r") as handle:
             uids.append(line[0])
 
 docs_list = list(temp.keys())
-docs_list = docs_list[:120000]
+docs_list = docs_list[:200000]
 partition = int(len(docs_list) * .8)
 
 train_docs = docs_list[0:partition]
