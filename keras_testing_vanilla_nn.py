@@ -125,11 +125,11 @@ from keras.models import Model
 from keras.layers import Dense, Input, Dropout
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
-model_code = "vanilla.6.cos"
+model_code = "vanilla.7"
 
 a = Input(shape=(7221,))
-b = Dense(3000, activation="relu")(a)
-b = Dropout(0.1)(b)
+b = Dense(2048, activation="relu")(a)
+b = Dropout(0.25)(b)
 b = Dense(7221, activation="sigmoid")(b)
 model = Model(inputs=a, outputs=b)
 model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
