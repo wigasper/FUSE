@@ -17,10 +17,6 @@ with open("./data/subset_terms_list", "r") as handle:
         subset.append(line.strip("\n"))
 subset = set(subset)
         
-# Load in term frequencies
-#with open("./data/term_freqs_rev_2_all_terms.json", "r") as handle:
-#    temp = json.load(handle)
- 
 with open("./data/term_freqs_rev_3_all_terms.json", "r") as handle:
     temp = json.load(handle)
 
@@ -33,7 +29,7 @@ with open("./data/mesh_data.tab", "r") as handle:
             uids.append(line[0])
 
 docs_list = list(temp.keys())
-docs_list = docs_list[:180000]
+docs_list = docs_list[:160000]
 partition = int(len(docs_list) * .9)
 
 train_docs = docs_list[0:partition]
@@ -68,15 +64,11 @@ for doc in train_docs:
     for uid in uids:
         if uid in train_freqs[doc].keys():
             row.append(train_freqs[doc][uid])
-#            row.append(int(train_freqs[doc][uid] * 100))
         else:
             row.append(0)
     x.append(row)
 
 x = np.array(x)
-
-#x = x.reshape(30430, 7221, 1)
-#x = x.reshape(1, 7221, 45659)
 
 y = []
 for doc in train_docs:
@@ -96,15 +88,11 @@ for doc in test_docs:
     for uid in uids:
         if uid in test_freqs[doc].keys():
             row.append(test_freqs[doc][uid])
-#            row.append(int(test_freqs[doc][uid] * 100))
         else:
             row.append(0)
     x_test.append(row)
 
 x_test = np.array(x_test)
-
-#x_test = x_test.reshape(7604, 7221, 1)
-#x_test = x_test.reshape(1, 7221, 45659)
 
 y_test = []
 for doc in test_docs:
@@ -125,11 +113,18 @@ from keras.models import Model
 from keras.layers import Dense, Input, Dropout
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
-model_code = "vanilla.7"
+model_code = "vanilla.12"
 
 a = Input(shape=(7221,))
-b = Dense(2048, activation="relu")(a)
-b = Dropout(0.25)(b)
+b = Dense(256, activation="relu")(a)
+b = Dropout(0.5)(b)
+b = Dense(256, activation="relu")(b)
+b = Dropout(0.5)(b)
+b = Dense(256, activation="relu")(b)
+b = Dropout(0.5)(b)
+b = Dense(256, activation="relu")(b)
+b = Dropout(0.5)(b)
+#b = Dense(600, activation="relu")(b)
 b = Dense(7221, activation="sigmoid")(b)
 model = Model(inputs=a, outputs=b)
 model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
@@ -139,6 +134,8 @@ with open(f"{model_code}.config.json", "w") as out:
 
 model.summary(print_fn=logger.info)
 
+# changed batch size 16 to 8 on aug 9 1905
+# now to 32 aug 12 1000
 batch_size = 16
 epochs = 60
 
@@ -187,13 +184,7 @@ else:
 
 logger.info(f"F1: {f1}, trained on: {len(train_docs)} samples, weights saved as: {fp}") 
 logger.info(f"batch_size: {batch_size}, epochs: {epochs}")
+# logger.info("used co-occ feature engineering here")
 
 from notify import notify
 notify(f"f1: {f1}")
-#t1 = y_pred[0]
-#col = 0
-#max_c = 0
-#for index, column in enumerate(t1):
-#    if t1[index] > max_c:
-#        max_c = t1[index]
-#        col = index
