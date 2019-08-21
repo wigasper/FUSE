@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 import time
 import math
@@ -10,14 +11,17 @@ import logging
 
 from tqdm import tqdm
 
-def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
-
+def build_feature_dict(edge_list, term_ranks, term_list, num):
+    logger = logging.getLogger(__name__)
     term_freqs = {}
     doc_terms = {}
     
     # Get only the docs that we need term counts for to avoid using 24 gb of memory
+    # Add both edges to ensure that we are only getting samples that we have a solution
+    # for - in conditional logic lines 31-34
     need_counts_for = []
     for edge in edge_list:
+        need_counts_for.append(edge[0])
         need_counts_for.append(edge[1])
     need_counts_for = set(need_counts_for)
     with open("../data/pm_doc_term_counts.csv", "r") as handle:
@@ -28,23 +32,28 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
                 doc_terms[line[0]] = line[1:]
     
     term_freqs = {edge[0]: {} for edge in edge_list if edge[0] in doc_terms.keys()}
-    #term_freqs = {}
+    
+    # subset edge list for only edge[0]s we have solutions for, avoid KeyErrors
+    logger.info(f"edge_list len before subset: {len(edge_list)}")
+    edge_list = [edge for edge in edge_list if edge[0] in term_freqs.keys()]
+    logger.info(f"edge_list len after subset: {len(edge_list)}")
 
     # build term freqs
-    print(f"Building term_freqs... Pre-build: {len(term_freqs)} docs")
+    logger.info(f"Building term_freqs... Pre-build: {len(term_freqs)} docs")
     for edge in tqdm(edge_list):
         try:
-            for term in doc_terms[edge[1]]:
-                if term and term in term_freqs[edge[0]].keys() and term in term_list:
-                    term_freqs[edge[0]][term] += 1
-                elif term and term in term_list:
-                    term_freqs[edge[0]][term] = 1
+            if edge[1] in doc_terms.keys():
+                for term in doc_terms[edge[1]]:
+                    if term and term in term_freqs[edge[0]].keys() and term in term_list:
+                        term_freqs[edge[0]][term] += 1
+                    elif term and term in term_list:
+                        term_freqs[edge[0]][term] = 1
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(repr(e))
             logger.critical(trace)
 
-    print(f"{len(term_freqs)} docs added to term_freqs")
+    logger.info(f"{len(term_freqs)} docs added to term_freqs")
     
     for doc in term_freqs.keys():
         total_count = 0
@@ -57,7 +66,7 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
     # maybe switch to sorting here if needed
     out = {}
     doc_count = 0
-    print("Selecting samples from each threshold until maxed...")
+    logger.info("Selecting samples from each threshold until maxed...")
     thresholds = [x * .1 for x in range(0,10)]
     for thresh in tqdm(thresholds):
         for doc in term_freqs.keys():
@@ -74,15 +83,7 @@ def build_feature_dict(edge_list, term_ranks, term_list, num, logger):
                     out[doc] = term_freqs[doc]
                     doc_count += 1
     logger.info(f"Selected {len(out)} keys from a pool of {len(term_freqs)}")
-    """
     
-    out = {}
-    doc_count = 0
-    for doc in term_freqs.keys():
-        if doc_count < num:
-            out[doc] = term_freqs[doc]
-            doc_count += 1
-    """
     return out
     
 def build_edge_list(file_list, logger):
@@ -200,11 +201,15 @@ def main():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    # Get docs list
-    docs = os.listdir("../pubmed_bulk")
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
     # Count terms in documents
     if args.count:
+        docs = os.listdir("../pubmed_bulk")
         count_doc_terms(docs, logger)
 
     # Set up term subset and rankings
@@ -249,6 +254,7 @@ def main():
     else:
         try:
             # TODO: add something here to raise an exception if no args.input
+            #xmls_to_parse = os.listdir("../pmc_xmls")
             xmls_to_parse = os.listdir(args.input)
             xmls_to_parse = list(dict.fromkeys(xmls_to_parse))
 
@@ -265,21 +271,18 @@ def main():
             logger.error(repr(e))
             logger.critical(trace)
 
-        with open("../data/edge_list_more_edges.csv", "w") as out:
+        with open("../data/edge_list_build_aug7.csv", "w") as out:
             for edge in edge_list:
                 out.write("".join([edge[0], ",", edge[1], "\n"]))
 
-    #if args.minimum:
     try:
-        term_freqs = build_feature_dict(edge_list, term_ranks, term_list, args.number, logger)
+        term_freqs = build_feature_dict(edge_list, term_ranks, term_list, args.number)
     except Exception as e:
         trace = traceback.format_exc()
         logger.error(repr(e))
         logger.critical(trace)
-    #else:
-    #    term_freqs = build_feature_dict(edge_list, 0, logger)
 
-    with open("../data/term_freqs_rev_3_all_terms.json", "w") as out:
+    with open("../data/term_freqs_rev_4_all_terms.json", "w") as out:
         json.dump(term_freqs, out)
 
 if __name__ == "__main__":
