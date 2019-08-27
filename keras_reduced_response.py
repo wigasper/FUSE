@@ -20,6 +20,11 @@ subset = set(subset)
 with open("./data/term_freqs_rev_3_all_terms.json", "r") as handle:
     temp = json.load(handle)
 
+top_500 = []
+with open("./data/top_500_terms", "r") as handle:
+    for line in handle:
+        top_500.append(line.strip("\n"))
+
 # Get UIDs in a list - for use in building arrays
 uids = []
 with open("./data/mesh_data.tab", "r") as handle:
@@ -29,7 +34,7 @@ with open("./data/mesh_data.tab", "r") as handle:
             uids.append(line[0])
 
 docs_list = list(temp.keys())
-docs_list = docs_list[:160000]
+docs_list = docs_list[:180000]
 partition = int(len(docs_list) * .9)
 
 train_docs = docs_list[0:partition]
@@ -73,7 +78,7 @@ x = np.array(x)
 y = []
 for doc in train_docs:
     row = []
-    for uid in uids:
+    for uid in top_500:
         if uid in solution[doc]:
             row.append(1)
         else:
@@ -97,7 +102,7 @@ x_test = np.array(x_test)
 y_test = []
 for doc in test_docs:
     row = []
-    for uid in uids:
+    for uid in top_500:
         if uid in solution[doc]:
             row.append(1)
         else:
@@ -113,19 +118,17 @@ from keras.models import Model
 from keras.layers import Dense, Input, Dropout
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
-model_code = "vanilla.baseline"
+model_code = "reduced.resp.6"
 
 a = Input(shape=(7221,))
-b = Dense(2048, activation="relu")(a)
+b = Dense(1000, activation="relu")(a)
+b = Dropout(0.1)(b)
+b = Dense(1000, activation="relu")(b)
 b = Dropout(0.1)(b)
 #b = Dense(256, activation="relu")(b)
 #b = Dropout(0.5)(b)
-#b = Dense(256, activation="relu")(b)
-#b = Dropout(0.5)(b)
-#b = Dense(256, activation="relu")(b)
-#b = Dropout(0.5)(b)
 #b = Dense(600, activation="relu")(b)
-b = Dense(7221, activation="sigmoid")(b)
+b = Dense(500, activation="sigmoid")(b)
 model = Model(inputs=a, outputs=b)
 model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
 

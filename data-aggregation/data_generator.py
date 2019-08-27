@@ -64,6 +64,7 @@ def build_feature_dict(edge_list, term_ranks, term_list, num):
     
     # go through term freqs and select samples
     # maybe switch to sorting here if needed
+
     out = {}
     doc_count = 0
     logger.info("Selecting samples from each threshold until maxed...")
@@ -76,7 +77,8 @@ def build_feature_dict(edge_list, term_ranks, term_list, num):
                 avg = 0
                 for term in term_freqs[doc].keys():
                     term_count += 1
-                    sum_tot += term_ranks[term] * term_freqs[doc][term]
+                    if term in term_ranks.keys():
+                        sum_tot += term_ranks[term] * term_freqs[doc][term]
                 if term_count > 0:
                     avg = sum_tot / term_count
                 if avg > 0 and thresh <= avg < (thresh + .1):

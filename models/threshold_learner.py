@@ -13,7 +13,7 @@ from tqdm import tqdm
 def uid_worker(work_queue, write_queue, term_freqs, solution, default_thresh):
     # Minimum number of positive responses required for a UID
     # in order to learn a discrimination threshold
-    min_num_samples = 8000
+    min_num_samples = 2000
 
     while True:
         uid = work_queue.get()

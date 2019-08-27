@@ -79,6 +79,7 @@ def count_mesh_terms(doc_list, uids, logger, load_flag=True, save_flag=False):
         with open("./data/pm_bulk_term_counts.json", "r") as handle:
             term_counts = json.load(handle)
     else:
+        print("Starting MeSH term counting...")
         # Compile regexes for counting MeSH terms
         mesh_list_start = re.compile(r"\s*<MeshHeadingList>")
         mesh_list_stop = re.compile(r"\s*</MeshHeadingList>")
