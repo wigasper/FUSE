@@ -49,8 +49,8 @@ with sns.axes_style("white"):
                      yticklabels=labels, 
                      cbar_kws={"label": "Co-occurrence Log-likelihood Ratio"})
 
-plot.set_xticklabels(plot.get_xticklabels(), fontsize=8)
-plot.set_yticklabels(plot.get_yticklabels(), fontsize=8)
+plot.set_xticklabels(plot.get_xticklabels(), fontsize=7)
+plot.set_yticklabels(plot.get_yticklabels(), fontsize=7)
 
 fig = plot.get_figure()
 fig.savefig("/home/wkg/Desktop/test.nr.png", bbox_inches="tight", dpi=600)
@@ -85,8 +85,8 @@ plot = sns.heatmap(log_likes, xticklabels=x_labels, yticklabels=y_labels,
                    cbar_kws={"label": "Co-occurrence Log-likelihood Ratio"})
                    #cmap="Greens")
 #plot.set_xticklabels(plot.get_xticklabels(), rotation=85)
-plot.set_xticklabels(plot.get_xticklabels(), fontsize=8)
-plot.set_yticklabels(plot.get_yticklabels(), fontsize=8)
+plot.set_xticklabels(plot.get_xticklabels(), fontsize=7)
+plot.set_yticklabels(plot.get_yticklabels(), fontsize=7)
 
 fig = plot.get_figure()
 fig.savefig("/home/wkg/Desktop/test3_labs.0.png", bbox_inches="tight", dpi=600)
