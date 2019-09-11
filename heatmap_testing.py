@@ -9,6 +9,7 @@ Created on Sat Sep  7 14:27:24 2019
 import seaborn as sns
 import numpy as np
 
+sns.set(font="helvetica")
 # stuff that both need:
 
 term_names = {}
@@ -89,7 +90,7 @@ plot.set_xticklabels(plot.get_xticklabels(), fontsize=7)
 plot.set_yticklabels(plot.get_yticklabels(), fontsize=7)
 
 fig = plot.get_figure()
-fig.savefig("/home/wkg/Desktop/test3_labs.0.png", bbox_inches="tight", dpi=600)
+fig.savefig("/home/wkg/Desktop/test3_labs.1.png", bbox_inches="tight", dpi=600)
 
 
 #############################################
