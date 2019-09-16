@@ -57,3 +57,17 @@ minmaxs = np.array(minmaxs)
 #zs = (x - x.mean()) / x.std()
 
 #minmax = (zs - zs.min()) / (zs.max() - zs.min())
+
+# after getting temp in
+train_freqs = {}
+for sample in temp:
+    freqs = temp[sample].items()
+    mean = sum(freqs.values()) / 29351
+    std_dev = (1/29351 * sum([(x_i - mean)**2 for x_i in freqs.values()]))**0.5
+    for freq in freqs:
+        freqs[freq] = (freqs[freq] - mean) / std_dev
+    min_freq = min(freqs.values())
+    max_freq = max(freqs.values())
+    for freq in freqs:
+        freqs[freq] = (freqs[freq] - min_freq) / (max_freq - min_freq)
+
