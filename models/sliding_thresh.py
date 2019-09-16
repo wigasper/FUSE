@@ -60,10 +60,11 @@ def predict(test_freqs, thresh, solution):
     # Predict
     for doc in test_freqs.keys():
         mean_freq = sum(test_freqs[doc].values()) / len(test_freqs[doc])
-        if mean_freq < thresh:
-            predictions[doc] = [key for key, val in test_freqs[doc].items() if val > thresh]
-        else:
-            predictions[doc] = [key for key, val in test_freqs[doc].items() if val > mean_freq]
+        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > (mean_freq + .009)]
+        #if mean_freq < thresh:
+        #    predictions[doc] = [key for key, val in test_freqs[doc].items() if val > thresh]
+        #else:
+        #    predictions[doc] = [key for key, val in test_freqs[doc].items() if val > mean_freq]
     #for doc in test_freqs.keys():
     #    predictions[doc] = [key for key, val in test_freqs[doc].items() if val > thresh]
     #for doc in test_freqs.keys():
@@ -114,12 +115,12 @@ def main():
     docs_list = list(temp.keys())
     partition = int(len(docs_list) * .8)
 
-    train_docs = docs_list[0:partition]
+    #train_docs = docs_list[0:partition]
     test_docs = docs_list[partition:]
 
     # Load in solution values
     solution = {}
-    docs_list = set(docs_list)
+    docs_list = set(test_docs)
     with open("../data/pm_doc_term_counts.csv", "r") as handle:
         for line in handle:
             line = line.strip("\n").split(",")
@@ -132,10 +133,10 @@ def main():
     # Build training/test data, ensure good solution data is available
     # Solution data is not always available because documents may not be
     # indexed - even though obviously some of their references have been indexed
-    train_freqs = {}
-    for doc in train_docs:
-        if doc in solution.keys():
-            train_freqs[doc] = temp[doc]
+#    train_freqs = {}
+#    for doc in train_docs:
+#        if doc in solution.keys():
+#            train_freqs[doc] = temp[doc]
 
     test_freqs = {}
     for doc in test_docs:
@@ -144,7 +145,7 @@ def main():
 
     import time
     start = time.perf_counter()
-    default_thresh = train(train_freqs, solution, logger)
+    #default_thresh = train(train_freqs, solution, logger)
     print(f"elapsed: {time.perf_counter() - start}")
     
     start = time.perf_counter()
