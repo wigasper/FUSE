@@ -1,0 +1,52 @@
+---
+title: "cit"
+output: github_document
+---
+
+
+```{r include=FALSE}
+library(igraph)
+library(ggplot2)
+library(plyr)
+
+# read in
+edge_list <- read.csv("/media/wkg/storage/FUSE/data/edge_list_build_aug7.csv", header=FALSE)
+
+edge_list$V1 <- as.character(edge_list$V1)
+edge_list$V2 <- as.character(edge_list$V2)
+# to matrix
+edge_list <- as.matrix(edge_list)
+
+# create graph and simplify
+graph <- graph_from_edgelist(edge_list, directed=TRUE)
+graph <- simplify(graph)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+```{r}
+degree <- degree(graph, mode="in")
+degree <- as.data.frame(degree)
+ggplot(degree, aes(degree)) + geom_density(color="firebrick3", fill="firebrick3", alpha=0.4) + coord_cartesian(xlim=c(0,300))
+```
+
+```{r}
+temp_df <- data.frame(rownames(degree), c(degree$degree))
+names(temp_df) <- c("pmid", "degree")
+temp_df <- temp_df[order(-temp_df$degree),]
+knitr::kable(head(temp_df, n=20), row.names=FALSE)
+```
+
+```{r}
+btwn_cent <- betweenness(graph, directed=TRUE, weight=NULL)
+btwn_cent <- as.data.frame(btwn_cent)
+ggplot(btwn_cent, aes(btwn_cent)) + geom_density(color="springgreen3", fill="springgreen3", alpha=0.4) + coord_cartesian(xlim=c(0,2000))
+```
+
+```{r}
+temp_df_2 <- data.frame(rownames(btwn_cent), c(btwn_cent$btwn_cent))
+names(temp_df_2) <- c("pmid", "betweenness")
+net_stats <- merge(temp_df_2, temp_df, by="pmid")
+net_stats <- net_stats[order(-net_stats$betweenness),]
+knitr::kable(head(net_stats, n=20), row.names=FALSE)
+```
+
