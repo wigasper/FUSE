@@ -32,7 +32,7 @@ def evaluate(preds, solution, uids):
     logger.info(f"Micro-averaged F1 from test set: {mi_f1}")
     logger.info(f"Micro-averaged precision from test set: {mi_precision}")
     logger.info(f"Micro-averaged recall from test set: {mi_recall}\n")
-
+"""
     eb_ps = []
     eb_rs = []
     eb_f1s = []
@@ -101,6 +101,7 @@ def evaluate(preds, solution, uids):
     logger.info(f"Macro-averaged F1 from test set: {ma_f1}")
     logger.info(f"Macro-averaged precision from test set: {ma_precision}")
     logger.info(f"Macro-averaged recall from test set: {ma_recall}\n")
+"""
 
 def get_f1(thresh, term_freqs, solution):
     # Predict
@@ -188,23 +189,30 @@ if __name__ == "__main__":
     with open("../data/mesh_data.tab", "r") as handle:
         for line in handle:
             line = line.strip("\n").split("\t")
-            if line[0] in subset:
-                uids.append(line[0])
+            uids.append(line[0])
 
     # Load in term frequencies
     with open("../data/term_freqs_rev_3_all_terms.json", "r") as handle:
         temp = json.load(handle)
-    
+   
+    docs_list = list(temp.keys())
+    partition = int(len(docs_list) * .8)
+
     train_docs = docs_list[0:partition]
     test_docs = docs_list[partition:]
-
-    docs_list = list(temp.keys())
     
-    term_freqs = temp
+#    docs_list = list(temp.keys())
+#    partition = int(len(docs_list) * .8)
+#    docs_list = docs_list[partition:]
+
+#    term_freqs = temp
+    term_freqs = {key: val for key, val in temp.items() if key in test_docs}
 
     # Load in solution values
+
     solution = {}
-    docs_list = set(docs_list)
+    docs_list = set(test_docs)
+#    docs_list = set(docs_list)
     with open("../data/pm_doc_term_counts.csv", "r") as handle:
         for line in handle:
             line = line.strip("\n").split(",")
@@ -234,54 +242,97 @@ if __name__ == "__main__":
     # Dict for array assembly and lookup
     term_idxs = {term_subset[idx]: idx for idx in range(len(term_subset))}
     term_idxs_reverse = {idx: term_subset[idx] for idx in range(len(term_subset))}
-    
-    #sem_sims = array_builder("../data/semantic_similarities_rev1.csv", term_idxs)
-                
+   
+    """
+    co_occ_terms = {}
+    co_occ_values = {}
+    with open("../data/term_co-occ_log_likelihoods.csv", "r") as handle:
+        for line in handle:
+            line = line.strip("\n").split(",")
+            if line[0] in co_occ_terms.keys():
+                co_occ_terms[line[0]].append(line[1])
+            else:
+                co_occ_terms[line[0]] = [line[1]]
+            if line[1] in co_occ_terms.keys():
+                co_occ_terms[line[1]].append(line[0])
+            else:
+                co_occ_terms[line[1]] = [line[0]]
+            co_occ_values[",".join([line[0], line[1]])] = float(line[2])
+    """
+    # Get array and min/max normalize
     coocc_log_ratios = array_builder("../data/term_co-occ_log_likelihoods.csv", term_idxs)
-    max_ratio = np.max(coocc_log_ratios)
-    
+
+    cutoff = (5.0 - coocc_log_ratios.min()) / (coocc_log_ratios.max() - coocc_log_ratios.min())
+
+    coocc_log_ratios = (coocc_log_ratios - coocc_log_ratios.min()) / (coocc_log_ratios.max() - coocc_log_ratios.min())
+
     # testing tuning value to improve model
     tuning_val = 1
-    
+    #max_ratio = max(list(co_occ_values.values()))
+
     logger.info("Beginning co-occurrence incorporation")
+    """
+    for doc in tqdm(term_freqs.keys()):
+        try:
+            current_terms = [term for term in term_freqs[doc].keys() if term in co_occ_terms.keys()]
+            for term in current_terms:
+                doc_co_occs = [t for t in co_occ_terms[term] if t in current_terms]
+                for co_occ_term in doc_co_occs:
+                    if f"{term},{co_occ_term}" in co_occ_values.keys():
+                        term_freqs[doc][term] = term_freqs[doc][term] * co_occ_values[f"{term},{co_occ_term}"] / max_ratio
+                        term_freqs[doc][co_occ_term] = term_freqs[doc][co_occ_term] * co_occ_values[f"{term},{co_occ_term}"] / max_ratio
+                    if f"{co_occ_term}{term}" in co_occ_values.keys():
+                        term_freqs[doc][term] = term_freqs[doc][term] * co_occ_values[f"{co_occ_term},{term}"] / max_ratio
+                        term_freqs[doc][co_occ_term] = term_freqs[doc][co_occ_term] * co_occ_values[f"{co_occ_term},{term}"] / max_ratio
+                current_terms.remove(term)
+        except Exception as e:
+            trace = traceback.format_exc()
+            logger.error(repr(e))
+            logger.critical(trace)
+    """
     for doc in tqdm(term_freqs.keys()):
         try:
             # add semantically similar terms to each pool and weight by similarity
-            coocc_terms = {}
+#            coocc_terms = {}
+            checked_terms = []
             for term in term_freqs[doc].keys():
                 if term in term_idxs.keys():
                     row = term_idxs[term]
                     # coocc_log_ratios must have same dims here, may need to do something about this
                     for col in range(coocc_log_ratios.shape[0]):
-                        if coocc_log_ratios[row, col] > 3: #or coocc_log_ratios[row, col] < -3:
-                            coocc_terms[term_idxs_reverse[col]] = ((coocc_log_ratios[row, col] * tuning_val) / max_ratio) * term_freqs[doc][term]
-    
-            for term in coocc_terms.keys():
-                if term in term_freqs[doc].keys():
-                    term_freqs[doc][term] += coocc_terms[term]
+                        if coocc_log_ratios[row, col] > cutoff: #or coocc_log_ratios[row, col] < -3:
+ #                           coocc_terms[term_idxs_reverse[col]] = ((coocc_log_ratios[row, col] * tuning_val) / max_ratio) * term_freqs[doc][term]
+                            term_freqs[doc][term] += term_freqs[doc][term] * coocc_log_ratios[row, col]
+                            if term_idxs_reverse[col] not in checked_terms and term_idxs_reverse[col] in term_freqs[doc].keys():
+                                term_freqs[doc][term_idxs_reverse[col]] += term_freqs[doc][term_idxs_reverse[col]] * coocc_log_ratios[row, col]
+                checked_terms.append(term)
+#            for term in coocc_terms.keys():
+#                if term in term_freqs[doc].keys():
+#                    term_freqs[doc][term] += coocc_terms[term]
 #                else:
 #                    term_freqs[doc][term] = coocc_terms[term]
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(repr(e))
             logger.critical(trace)
-    logger.info("Co-occurrence incorporation complete")
     
-    del(coocc_log_ratios)
+    logger.info(f"Co-occurrence incorporation complete at cutoff: {cutoff}")
+    
+    #del(coocc_log_ratios)
 
     # Train and test
-    train_freqs = {}
-    for doc in train_docs:
-        if doc in solution.keys():
-            train_freqs[doc] = term_freqs[doc]
+#    train_freqs = {}
+#    for doc in train_docs:
+#        if doc in solution.keys():
+#            train_freqs[doc] = term_freqs[doc]
 
     test_freqs = {}
     for doc in test_docs:
         if doc in solution.keys():
             test_freqs[doc] = term_freqs[doc]  
 
-    thresh = train(train_freqs, solution)
-    
+#    thresh = train(train_freqs, solution)
+    thresh = 0.15
     preds = predict(test_freqs, thresh)
 
     evaluate(preds, solution, uids)
