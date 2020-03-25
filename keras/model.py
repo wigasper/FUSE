@@ -21,52 +21,50 @@ def get_logger():
     return logger
 
 def get_model():
-    model = keras.Sequential()
-    model.add(Dense(2048, activation="relu", input_dim=29351))
-    model.add(Dropout(0.1))
-    model.add(Dense(29351, activation="sigmoid"))
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    mod = keras.Sequential()
+    mod.add(Dense(2048, activation="relu", input_dim=29351))
+    mod.add(Dropout(0.1))
+    mod.add(Dense(29351, activation="sigmoid"))
+    mod.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
     
-    return model
+    return mod
 
 # TODO: this needs work
-def test(fp):
-    model = get_model()
+def test(weights_fp, logger):
+    mod = get_model()
+    mod.load_weights(weights_fp)
 
     test_ids = []
     with open("test_ids", "r") as handle:
         for line in handle:
             test_ids.append(line.strip("\n"))
 
-    x_test = np.empty((2000,29351))
-    y_test = np.empty((2000,29351))
-
-    for idx, test_id in enumerate(test_ids[:2000]):
-        x_test[idx,] = np.load(f"data/{test_id}_x.npy")
-        y_test[idx,] = np.load(f"data/{test_id}_y.npy")
-
-    model.load_weights(fp)
-
-    y_hat = model.predict(x_test)
-    y_hat = np.round(y_hat)
-
     true_pos = 0
     false_pos = 0
     true_neg = 0
     false_neg = 0
 
-    # TODO: this is terribly slow
-    for r_idx, row in tqdm(enumerate(y_hat)):
-        for c_idx, col in enumerate(row):
-            if y_hat[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 1:
-                true_pos += 1
-            if y_hat[r_idx][c_idx] == 0 and y_test[r_idx][c_idx] == 1:
-                false_neg += 1
-            if y_hat[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 0:
-                false_pos +=1
-            if y_hat[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 0:
-                true_neg += 1
-
+    for test_id in tqdm(test_ids[:2000]):
+        x_test = np.empty((1, 29351))
+        x_test[0,] = np.load(f"data/{test_id}_x.npy")
+        y_test = np.empty((1, 29351))
+        y_test[0,] = np.load(f"data/{test_id}_y.npy")
+       
+        y_hat = mod.predict(x_test)
+        y_hat = np.round(y_hat)
+        
+        # TODO: this is terribly slow, must be a better way
+        for r_idx, row in enumerate(y_hat):
+            for c_idx, col in enumerate(row):
+                if y_hat[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 1:
+                    true_pos += 1
+                if y_hat[r_idx][c_idx] == 0 and y_test[r_idx][c_idx] == 1:
+                    false_neg += 1
+                if y_hat[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 0:
+                    false_pos +=1
+                if y_hat[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 0:
+                    true_neg += 1
+            
     if true_pos > 0:
         precision = true_pos / (true_pos + false_pos)
         recall = true_pos / (true_pos + false_neg)
@@ -75,9 +73,7 @@ def test(fp):
     else:
         f1 = 0
 
-    print(f"F1: {f1}, precision: {precision}, recall: {recall}")
-    #print(f"trained on: {len(train_docs)} samples, weights saved as: {fp}")
-    #print(f"batch_size: {batch_size}, epochs: {epochs}")
+    logger.info(f"F1: {f1}, precision: {precision}, recall: {recall}")
 
 if __name__ == "__main__":
     logger = get_logger()
@@ -86,28 +82,33 @@ if __name__ == "__main__":
     with open("train_ids", "r") as handle:
         for line in handle:
             ids_list.append(line.strip("\n"))
-
-    training_generator = DataGen(ids_list)
-
-    model_code = "train_gen_test"
-
-    model = get_model()
     
     batch_size = 16
-    epochs = 2
+    training_generator = DataGen(ids_list, batch_size)
+
+    model_code = "30_epochs"
+
+    mod = get_model()
+    
+    epochs = 30
 
     fp = f"weights.{model_code}.hdf5"
     
-    # was val_loss
-    checkpoint = ModelCheckpoint(fp, monitor="loss", verbose=1, save_best_only=True, 
-                                    mode="min")
+    #checkpoint = ModelCheckpoint(fp, monitor="loss", verbose=1, save_best_only=True, 
+    #                                mode="min")
 
-    early = EarlyStopping(monitor="loss", mode="min", patience=20)
+    #early = EarlyStopping(monitor="loss", mode="min", patience=20)
 
-    callbacks_list = [checkpoint, early]
+    #callbacks_list = [checkpoint, early]
 
-    model.fit_generator(generator=training_generator, use_multiprocessing=True, workers=4, 
-            epochs=epochs, callbacks=callbacks_list)
-    #model.fit(x, y, batch_size=batch_size, epochs=epochs, validation_split=0.1, callbacks=callbacks_list)
-
+    mod.fit_generator(generator=training_generator, use_multiprocessing=True, workers=4,
+            epochs=epochs)
+    
+    mod.save_weights(fp)
+    #mod.fit_generator(generator=training_generator, use_multiprocessing=True, workers=4, 
+    #        epochs=epochs, callbacks=callbacks_list)
+    
+    #mod.fit_generator(generator=training_generator, use_multiprocessing=False, epochs=epochs,
+    #        callbacks=callbacks_list)
+    test(fp, logger)
         

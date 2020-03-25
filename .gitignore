@@ -1,2 +1,4 @@
 ncbi.key
 data
+*.hdf5
+*.csv
