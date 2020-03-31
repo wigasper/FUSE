@@ -1,7 +1,9 @@
 import logging
 
+from numba import jit
 import numpy as np
 from tqdm import tqdm
+from sklearn.metrics import confusion_matrix
 
 import tensorflow as tf
 from tensorflow import keras
@@ -20,18 +22,40 @@ def get_logger():
 
     return logger
 
-def get_model():
+def get_model(dim):
     mod = keras.Sequential()
-    mod.add(Dense(2048, activation="relu", input_dim=29351))
+    mod.add(Dense(dim, activation="relu", input_dim=29351))
     mod.add(Dropout(0.1))
     mod.add(Dense(29351, activation="sigmoid"))
     mod.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
     
     return mod
 
-# TODO: this needs work
-def test(weights_fp, logger):
-    mod = get_model()
+@jit
+def count_metrics(y, y_hat, threshold):
+    true_pos = 0
+    false_pos = 0
+    false_neg = 0
+
+    n_cols = len(y[0])
+    n_rows = len(y)
+
+    for row in range(n_rows):
+        for col in range(n_cols):
+            y_hat_val = y_hat[row][col]
+            y_val = y[row][col]
+            
+            if y_hat_val > threshold and y_val == 1.0:
+                true_pos += 1
+            elif y_hat_val <= threshold and y_val == 1.0:
+                false_neg += 1
+            elif y_hat_val > threshold and y_val == 0.0:
+                false_pos += 1
+            
+    return true_pos, false_pos, false_neg
+
+def test(weights_fp, logger, threshold, mod=get_model(2048)):
+    #mod = get_model()
     mod.load_weights(weights_fp)
 
     test_ids = []
@@ -41,39 +65,31 @@ def test(weights_fp, logger):
 
     true_pos = 0
     false_pos = 0
-    true_neg = 0
     false_neg = 0
+    
+    batch_size = 32
+    test_gen = DataGen(test_ids, batch_size)
 
-    for test_id in tqdm(test_ids[:2000]):
-        x_test = np.empty((1, 29351))
-        x_test[0,] = np.load(f"data/{test_id}_x.npy")
-        y_test = np.empty((1, 29351))
-        y_test[0,] = np.load(f"data/{test_id}_y.npy")
-       
-        y_hat = mod.predict(x_test)
-        y_hat = np.round(y_hat)
+    for batch in tqdm(test_gen):
+        x = batch[0]
+        y = batch[1]
+
+        y_hat = mod.predict(x)
         
-        # TODO: this is terribly slow, must be a better way
-        for r_idx, row in enumerate(y_hat):
-            for c_idx, col in enumerate(row):
-                if y_hat[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 1:
-                    true_pos += 1
-                if y_hat[r_idx][c_idx] == 0 and y_test[r_idx][c_idx] == 1:
-                    false_neg += 1
-                if y_hat[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 0:
-                    false_pos +=1
-                if y_hat[r_idx][c_idx] == 1 and y_test[r_idx][c_idx] == 0:
-                    true_neg += 1
-            
+        tp_temp, fp_temp, fn_temp = count_metrics(y, y_hat, threshold)
+        true_pos += tp_temp
+        false_pos += fp_temp
+        false_neg += fn_temp
+           
     if true_pos > 0:
         precision = true_pos / (true_pos + false_pos)
         recall = true_pos / (true_pos + false_neg)
-        accurracy = (true_pos + true_neg) / (true_pos + true_neg + false_pos + false_neg)
         f1 = (2 * precision * recall) / (precision + recall)
     else:
         f1 = 0
 
-    logger.info(f"F1: {f1}, precision: {precision}, recall: {recall}")
+
+    logger.info(f"F1: {f1}, precision: {precision}, recall: {recall}, threshold: {threshold}")
 
 if __name__ == "__main__":
     logger = get_logger()
@@ -83,32 +99,18 @@ if __name__ == "__main__":
         for line in handle:
             ids_list.append(line.strip("\n"))
     
+    epochs = 10
     batch_size = 16
-    training_generator = DataGen(ids_list, batch_size)
-
-    model_code = "30_epochs"
-
-    mod = get_model()
+    training_generator = DataGen(ids_list, batch_size) 
+    model_code = "current_test"
+    fp = f"weights.{model_code}.hdf5"   
     
-    epochs = 30
-
-    fp = f"weights.{model_code}.hdf5"
-    
-    #checkpoint = ModelCheckpoint(fp, monitor="loss", verbose=1, save_best_only=True, 
-    #                                mode="min")
-
-    #early = EarlyStopping(monitor="loss", mode="min", patience=20)
-
-    #callbacks_list = [checkpoint, early]
-
-    mod.fit_generator(generator=training_generator, use_multiprocessing=True, workers=4,
-            epochs=epochs)
-    
-    mod.save_weights(fp)
-    #mod.fit_generator(generator=training_generator, use_multiprocessing=True, workers=4, 
-    #        epochs=epochs, callbacks=callbacks_list)
-    
-    #mod.fit_generator(generator=training_generator, use_multiprocessing=False, epochs=epochs,
-    #        callbacks=callbacks_list)
-    test(fp, logger)
+    dims = [100, 200, 400, 800, 1600, 2000, 3200]
+    for dim in dims:
+        logger.info(f"training model with {dim} dimension dense")
+        mod = get_model(dim)
+        mod.fit_generator(generator=training_generator, use_multiprocessing=True, workers=4,
+                epochs=epochs)
+        mod.save_weights(fp)
         
+        test(fp, logger, 0.24, mod)    
