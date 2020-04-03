@@ -55,7 +55,6 @@ def count_metrics(y, y_hat, threshold):
     return true_pos, false_pos, false_neg
 
 def test(weights_fp, logger, threshold, mod=get_model(2048)):
-    #mod = get_model()
     mod.load_weights(weights_fp)
 
     test_ids = []
@@ -67,14 +66,14 @@ def test(weights_fp, logger, threshold, mod=get_model(2048)):
     false_pos = 0
     false_neg = 0
     
-    batch_size = 32
+    batch_size = 16
     test_gen = DataGen(test_ids, batch_size)
 
     for batch in tqdm(test_gen):
         x = batch[0]
         y = batch[1]
 
-        y_hat = mod.predict(x)
+        y_hat = mod.predict_on_batch(x)
         
         tp_temp, fp_temp, fn_temp = count_metrics(y, y_hat, threshold)
         true_pos += tp_temp
@@ -88,7 +87,6 @@ def test(weights_fp, logger, threshold, mod=get_model(2048)):
     else:
         f1 = 0
 
-
     logger.info(f"F1: {f1}, precision: {precision}, recall: {recall}, threshold: {threshold}")
 
 if __name__ == "__main__":
@@ -101,11 +99,13 @@ if __name__ == "__main__":
     
     epochs = 10
     batch_size = 16
-    training_generator = DataGen(ids_list, batch_size) 
+    training_generator = DataGen(ids_list[:40000], batch_size) 
     model_code = "current_test"
     fp = f"weights.{model_code}.hdf5"   
     
-    dims = [100, 200, 400, 800, 1600, 2000, 3200]
+    #dims = [100, 200, 400, 800, 1600, 2000, 3200]
+    # 5000 current best, excluding now for testing
+    dims = [8400, 10000, 12000, 14000]
     for dim in dims:
         logger.info(f"training model with {dim} dimension dense")
         mod = get_model(dim)
@@ -114,3 +114,4 @@ if __name__ == "__main__":
         mod.save_weights(fp)
         
         test(fp, logger, 0.24, mod)    
+        tf.keras.backend.clear_session()
