@@ -26,6 +26,8 @@ def get_model(dim):
     mod = keras.Sequential()
     mod.add(Dense(dim, activation="relu", input_dim=29351))
     mod.add(Dropout(0.1))
+    mod.add(Dense(dim, activation="relu"))
+    mod.add(Dropout(0.1))
     mod.add(Dense(29351, activation="sigmoid"))
     mod.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
     
@@ -99,17 +101,18 @@ if __name__ == "__main__":
     
     epochs = 10
     batch_size = 16
-    training_generator = DataGen(ids_list[:40000], batch_size) 
+    training_generator = DataGen(ids_list, batch_size) 
     model_code = "current_test"
     fp = f"weights.{model_code}.hdf5"   
-    
-    #dims = [100, 200, 400, 800, 1600, 2000, 3200]
+    logger.info(f"training on all ids. {epochs} epochs")
+
+    #dims = [100, 200, 400, 800, 1600, 2000]
     # 5000 current best, excluding now for testing
-    dims = [8400, 10000, 12000, 14000]
+    dims = [800]
     for dim in dims:
-        logger.info(f"training model with {dim} dimension dense")
+        logger.info(f"training model with {dim}, {dim} dimension dense")
         mod = get_model(dim)
-        mod.fit_generator(generator=training_generator, use_multiprocessing=True, workers=4,
+        mod.fit(training_generator, use_multiprocessing=True, workers=4,
                 epochs=epochs)
         mod.save_weights(fp)
         
