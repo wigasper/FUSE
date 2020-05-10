@@ -95,20 +95,20 @@ if __name__ == "__main__":
     logger = get_logger()
     
     ids_list = []
-    with open("train_ids", "r") as handle:
+    with open("train_ids_expanded", "r") as handle:
         for line in handle:
             ids_list.append(line.strip("\n"))
     
-    epochs = 10
+    epochs = 30
     batch_size = 16
     training_generator = DataGen(ids_list, batch_size) 
     model_code = "current_test"
     fp = f"weights.{model_code}.hdf5"   
-    logger.info(f"training on all ids. {epochs} epochs")
+    logger.info(f"training on all ids, expanded training set. {epochs} epochs")
 
     #dims = [100, 200, 400, 800, 1600, 2000]
     # 5000 current best, excluding now for testing
-    dims = [800]
+    dims = [1600]
     for dim in dims:
         logger.info(f"training model with {dim}, {dim} dimension dense")
         mod = get_model(dim)
@@ -116,5 +116,7 @@ if __name__ == "__main__":
                 epochs=epochs)
         mod.save_weights(fp)
         
-        test(fp, logger, 0.24, mod)    
-        tf.keras.backend.clear_session()
+        thresholds = [0.20, 0.21, 0.22, 0.23, 0.24, 0.24, 0.26, 0.27, 0.28]
+        for thresh in thresholds:
+            test(fp, logger, thresh, mod)    
+            tf.keras.backend.clear_session()

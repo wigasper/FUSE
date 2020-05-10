@@ -13,13 +13,22 @@ if __name__ == "__main__":
     with open("../data/term_freqs_rev_3_all_terms.json", "r") as handle:
         data = json.load(handle)
 
-    # short one to prototype keras generator
     docs_list = list(data.keys())
     partition = int(len(docs_list) * .8)
 
-    train_docs = docs_list[:partition]
+    #train_docs = docs_list[:partition]
     test_docs = docs_list[partition:]
 
+    #docs_list = set(docs_list)
+
+    with open("../data/term_freqs_rev_4_all_terms.json", "r") as handle:
+        data = json.load(handle)
+    
+    docs_list = list(data.keys())
+    
+    test_docs_set = set(test_docs)
+
+    docs_list = [doc for doc in docs_list if doc not in test_docs_set]
     docs_list = set(docs_list)
 
     solution = {}
@@ -28,14 +37,16 @@ if __name__ == "__main__":
             line = line.strip("\n").split(",")
             if line[0] in docs_list:
                 solution[line[0]] = line[1:]
-
-    with open("train_ids", "w") as out:
-        for doc in tqdm(train_docs):
+    
+    docs_list = [doc for doc in docs_list if doc in solution.keys()]
+    
+    with open("train_ids_expanded", "w") as out:
+        for doc in tqdm(docs_list):
             out.write(f"{doc}\n")
 
-    with open("test_ids", "w") as out:
-        for doc in tqdm(test_docs):
-            out.write(f"{doc}\n")
+    #with open("test_ids", "w") as out:
+    #    for doc in tqdm(test_docs):
+    #        out.write(f"{doc}\n")
 
     for doc in tqdm(docs_list):
         row = []
