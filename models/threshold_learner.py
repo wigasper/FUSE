@@ -1,34 +1,42 @@
 #!/usr/bin/env python3
+import sys
 import json
 import logging
 import argparse
 from multiprocessing import Process, Queue
 from copy import deepcopy
 
-from notify import notify
+#from numba import jit
 from tqdm import tqdm
 
-# MP worker that calculates the optimately discrimination threshold
+# MP worker that calculates the decision threshold
 # for a single UID
 def uid_worker(work_queue, write_queue, term_freqs, solution, default_thresh):
     # Minimum number of positive responses required for a UID
     # in order to learn a discrimination threshold
-    min_num_samples = 2000
+    min_num_samples = 500
 
     while True:
         uid = work_queue.get()
         if uid is None:
             break
 
+        min_freq = 1.0
         count = 0
         for doc in term_freqs.keys():
             if uid in term_freqs[doc].keys():
                 count += 1
-        
+                if term_freqs[doc][uid] < min_freq:
+                    min_freq = term_freqs[doc][uid]
+            # Can't have both, not sure which is better
+            #if count >= min_num_samples:
+            #    break
+
         if count >= min_num_samples:
-            curr_thresh = 0.0
-            step_val = 0.001
-            
+            curr_thresh = min_freq
+            step_val = 0.01
+            search_max = 0.5
+
             f1s = []
             
             f1s.append(get_f1_worker(curr_thresh, uid, term_freqs, solution))
@@ -37,15 +45,16 @@ def uid_worker(work_queue, write_queue, term_freqs, solution, default_thresh):
             curr_thresh += step_val
             next_thresh_f1 = get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution)
             
-            while curr_thresh < .2 and not (next_thresh_f1 < f1s[-1] and next_thresh_f1 < f1s[-2] and f1s[-1] < f1s[-2]):
+            while curr_thresh < search_max and not (next_thresh_f1 < f1s[-1] and next_thresh_f1 < f1s[-2] and f1s[-1] < f1s[-2]):
+            #while not (next_thresh_f1 < f1s[-1] and next_thresh_f1 < f1s[-2] and f1s[-1] < f1s[-2]):
                 curr_thresh += step_val
                 f1s.append(get_f1_worker(curr_thresh, uid, term_freqs, solution))
                 next_thresh_f1 = get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution)
             
             max_thresh = curr_thresh - step_val
 
-            if max_thresh > 0.185:
-                max_thresh = default_thresh
+            #if max_thresh > 0.185:
+            #    max_thresh = default_thresh
 
         else:
             max_thresh = default_thresh
@@ -53,11 +62,14 @@ def uid_worker(work_queue, write_queue, term_freqs, solution, default_thresh):
         write_queue.put((uid, max_thresh))
 
 def get_f1_worker(thresh, uid, term_freqs, solution):
-    predictions = {doc: 0 for doc in term_freqs.keys()}
-    
+    #predictions = {doc: 0 for doc in term_freqs.keys()}
+    predictions = {}
+
     for doc in term_freqs.keys():
         if uid in term_freqs[doc].keys() and term_freqs[doc][uid] > thresh:
             predictions[doc] = 1
+        else:
+            predictions[doc] = 0
 
     true_pos = 0
     false_pos = 0
@@ -122,8 +134,8 @@ def get_f1(thresh, term_freqs, solution):
 
 def learn_default_threshold(term_freqs, solution):
     curr_thresh = 0.0
-    step_val = 0.001
-    ##
+    step_val = 0.01
+    
     f1s = []
     
     f1s.append(get_f1(curr_thresh, term_freqs, solution))
@@ -137,7 +149,6 @@ def learn_default_threshold(term_freqs, solution):
         f1s.append(get_f1(curr_thresh, term_freqs, solution))
         next_thresh_f1 = get_f1(curr_thresh + step_val, term_freqs, solution)
     
-    print(curr_thresh - step_val)
     return curr_thresh - step_val
 
 def predict(test_freqs, solution):
@@ -154,7 +165,7 @@ def predict(test_freqs, solution):
     # Predict
     for doc in test_freqs.keys():
         predictions[doc] = [key for key, val in test_freqs[doc].items() if val > uid_thresholds[key]]
-#        predictions[doc] = [key for key, val in test_freqs[doc].items() if val > .015]
+    
     # Get evaluation metrics
     true_pos = 0
     false_pos = 0
@@ -174,9 +185,7 @@ def predict(test_freqs, solution):
         recall = true_pos / (true_pos + false_neg)
         f1 = (2 * precision * recall) / (precision + recall)
 
-###############################################################################   
-    notify(f"all done, precision: {precision}, recall: {recall}, f1: {f1}")
-
+    logger.info(f"testing complete. precision: {precision}, recall: {recall}, f1: {f1}")
     return predictions
 
 def train(train_freqs, solution, logger):
@@ -187,8 +196,8 @@ def train(train_freqs, solution, logger):
             line = line.strip("\n").split("\t")
             uids.append(line[0])
 
-    default_thresh = learn_default_threshold(train_freqs, solution)
-    notify(f"default thresh learned: {default_thresh}")
+    default_thresh = 0.15
+    #default_thresh = learn_default_threshold(train_freqs, solution)
 
     # MP architecture
     num_workers = 6
@@ -213,7 +222,7 @@ def train(train_freqs, solution, logger):
     for worker in workers:
         worker.start()
 
-    print("Workers and writer started, adding UIDs to queue...")
+    logger.info("Workers and writer started, adding UIDs to queue")
     print("UID progress:")
     counter = 0
     logging_interval = 100
@@ -257,13 +266,20 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--train", help="train model", action="store_true")
     parser.add_argument("-p", "--predict", help="predict", action="store_true")
-    parser.add_argument("-i", "--input", help="input file path with term freqs for each doc", type=str, default="../data/term_freqs_rev_2_all_terms.json")
+    parser.add_argument("-i", "--input", help="input file path with term freqs for each doc", 
+            type=str, default="../data/term_freqs_rev_3_all_terms.json")
     args = parser.parse_args()
 
     # Set up logging
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     handler = logging.FileHandler("../logs/threshold_learner.log")
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+        
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -303,12 +319,34 @@ def main():
         if doc in solution.keys():
             test_freqs[doc] = temp[doc]
 
-    # Free up memory
+    # Normalize
+    for pmid in train_freqs:
+        freqs = train_freqs[pmid]
+        mean_freq = sum(freqs.values()) / len(freqs.values())
+        min_freq = min(freqs.values())
+        max_freq = max(freqs.values())
+        if max_freq - min_freq > 0:
+            for freq in freqs:
+                freqs[freq] = (freqs[freq] - mean_freq) / (max_freq - min_freq)
+        train_freqs[pmid] = freqs
+
+    for pmid in test_freqs:
+        freqs = test_freqs[pmid]
+        mean_freq = sum(freqs.values()) / len(freqs.values())
+        min_freq = min(freqs.values())
+        max_freq = max(freqs.values())
+        if max_freq - min_freq > 0:
+            for freq in freqs:
+                freqs[freq] = (freqs[freq] - mean_freq) / (max_freq - min_freq)
+        test_freqs[pmid] = freqs
+
+    # try and free up memory
     del(temp)
     
     if args.train:
         train(train_freqs, solution, logger)
-    
+    logger.info(f"trained on {args.input}")
+
     if args.predict:
         preds = predict(test_freqs, solution)
 
