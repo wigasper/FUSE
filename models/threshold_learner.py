@@ -6,14 +6,39 @@ import argparse
 from multiprocessing import Process, Queue
 from copy import deepcopy
 
-#from numba import jit
+import numpy as np
+from numba import jit
 from tqdm import tqdm
+
+def build_y_array(uid, term_freqs, solution):
+    y = []
+    for doc in term_freqs:
+        if uid in solution[doc]:
+            y.append(1.0)
+        else:
+            y.append(0.0)
+    #out = np.empty((1, len(term_freqs)))
+    #out[0,] = y
+    return np.array(y)
+
+def build_y_hat_array(uid, term_freqs):
+    y_hat = []
+    for doc in term_freqs:
+        if uid in term_freqs[doc].keys():
+            y_hat.append(term_freqs[doc][uid])
+        else:
+            y_hat.append(0.0)
+
+    #out = np.empty((1, len(term_freqs)))
+    #out[0,] = y_hat
+    return np.array(y_hat)
 
 # MP worker that calculates the decision threshold
 # for a single UID
-def uid_worker(work_queue, write_queue, term_freqs, solution, default_thresh):
+def uid_worker(work_queue, write_queue, uids, term_freqs, solution, default_thresh):
     # Minimum number of positive responses required for a UID
     # in order to learn a discrimination threshold
+    # completely arbitrary, better way to do this probably
     min_num_samples = 500
 
     while True:
@@ -33,56 +58,47 @@ def uid_worker(work_queue, write_queue, term_freqs, solution, default_thresh):
             #    break
 
         if count >= min_num_samples:
-            curr_thresh = min_freq
-            step_val = 0.01
-            search_max = 0.5
-
+            y = build_y_array(uid, term_freqs, solution)
+            y_hat = build_y_hat_array(uid, term_freqs)
+            
             f1s = []
-            
-            f1s.append(get_f1_worker(curr_thresh, uid, term_freqs, solution))
-            f1s.append(get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution))
-            
-            curr_thresh += step_val
-            next_thresh_f1 = get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution)
-            
-            while curr_thresh < search_max and not (next_thresh_f1 < f1s[-1] and next_thresh_f1 < f1s[-2] and f1s[-1] < f1s[-2]):
-            #while not (next_thresh_f1 < f1s[-1] and next_thresh_f1 < f1s[-2] and f1s[-1] < f1s[-2]):
-                curr_thresh += step_val
-                f1s.append(get_f1_worker(curr_thresh, uid, term_freqs, solution))
-                next_thresh_f1 = get_f1_worker(curr_thresh + step_val, uid, term_freqs, solution)
-            
-            max_thresh = curr_thresh - step_val
 
-            #if max_thresh > 0.185:
-            #    max_thresh = default_thresh
+            thresholds = [x * .01 for x in range(100)]
+            thresholds = [t for t in thresholds if t >= min_freq]
 
+            for idx, threshold in enumerate(thresholds):
+                f1s.append(get_f1_worker(threshold, y, y_hat))
+                
+                # early stopping
+                if len(f1s) > 10 and f1s[-6] > f1s[-1]:
+                    break
+
+            optimal_threshold = thresholds[f1s.index(max(f1s))]
+            
         else:
-            max_thresh = default_thresh
+            optimal_threshold = default_thresh
 
-        write_queue.put((uid, max_thresh))
+        write_queue.put((uid, optimal_threshold))
 
-def get_f1_worker(thresh, uid, term_freqs, solution):
-    #predictions = {doc: 0 for doc in term_freqs.keys()}
-    predictions = {}
-
-    for doc in term_freqs.keys():
-        if uid in term_freqs[doc].keys() and term_freqs[doc][uid] > thresh:
-            predictions[doc] = 1
-        else:
-            predictions[doc] = 0
-
+@jit
+def get_f1_worker(threshold, y, y_hat):
     true_pos = 0
     false_pos = 0
     false_neg = 0
     
-    for pmid in predictions.keys():
-        if predictions[pmid] == 1 and uid in solution[pmid]:
+    y_len = len(y)
+
+    for idx in range(y_len):
+        y_hat_val = y_hat[idx]
+        y_val = y[idx]
+            
+        if y_hat_val > threshold and y_val == 1.0:
             true_pos += 1
-        if predictions[pmid] == 1 and uid not in solution[pmid]:
-            false_pos += 1
-        if predictions[pmid] == 0 and uid in solution[pmid]:
+        elif y_hat_val <= threshold and y_val == 1.0:
             false_neg += 1
-    
+        elif y_hat_val > threshold and y_val == 0.0:
+            false_pos += 1
+
     if true_pos == 0:
         precision = 0
         recall = 0
@@ -216,7 +232,7 @@ def train(train_freqs, solution, logger):
         writer.daemon = True
         writer.start()
 
-    workers = [Process(target=uid_worker, args=(work_queue, write_queue, 
+    workers = [Process(target=uid_worker, args=(work_queue, write_queue, deepcopy(uids),
                 deepcopy(train_freqs), deepcopy(solution), deepcopy(default_thresh))) for _ in range(num_workers)]
 
     for worker in workers:
